@@ -28,26 +28,6 @@ type UploadResult = {
     error?: string;
 };
 
-function getBaseUrl() {
-    const baseUrl = process.env.BASE_URL?.trim();
-    if (!baseUrl) {
-        throw new Error("BASE_URL must be set for clip uploads.");
-    }
-    return baseUrl.replace(/\/+$/, "");
-}
-
-function isPrivateHostname(hostname: string) {
-    return (
-        hostname === "localhost" ||
-        hostname === "127.0.0.1" ||
-        hostname === "0.0.0.0" ||
-        hostname.endsWith(".local") ||
-        /^10\./.test(hostname) ||
-        /^192\.168\./.test(hostname) ||
-        /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
-    );
-}
-
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -185,7 +165,7 @@ async function uploadToInstagram(args: {
         igUserId?: string;
         accessToken?: string;
     };
-    fileUrl: string;
+    filePath: string;
     caption: string;
     onStatus?: (message: string) => void | Promise<void>;
 }) {
@@ -195,41 +175,74 @@ async function uploadToInstagram(args: {
 
     const createRes = await fetch(`${GRAPH}/${args.account.igUserId}/media`, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
             media_type: "REELS",
-            video_url: args.fileUrl,
+            upload_type: "resumable",
             caption: args.caption,
-            share_to_feed: "true",
+            share_to_feed: true,
             access_token: args.account.accessToken,
         }),
     });
     const created = await createRes.json();
-    if (!createRes.ok || !created?.id) {
+    if (!createRes.ok || !created?.id || !created?.uri) {
         throw new Error(
             `Instagram container failed: ${created?.error?.message ?? JSON.stringify(created)}`,
         );
     }
+    const containerId = created.id as string;
+    const uploadUri = created.uri as string;
+    const fileSize = fs.statSync(args.filePath).size;
+    const fileBuffer = fs.readFileSync(args.filePath);
+    await args.onStatus?.(`Instagram container created: ${containerId}`);
     await args.onStatus?.(
-        `Instagram container created: ${created.id as string}`,
+        `Instagram resumable upload started: ${(fileSize / 1024 / 1024).toFixed(1)} MB`,
     );
+
+    const uploadRes = await fetch(uploadUri, {
+        method: "POST",
+        headers: {
+            Authorization: `OAuth ${args.account.accessToken}`,
+            "Content-Type": "video/mp4",
+            offset: "0",
+            file_size: fileSize.toString(),
+        },
+        body: fileBuffer,
+    });
+    if (!uploadRes.ok) {
+        const uploadText = await uploadRes.text();
+        throw new Error(`Instagram video upload failed: ${uploadText}`);
+    }
+    await args.onStatus?.("Instagram video bytes uploaded");
 
     let lastStatusCode: string | null = null;
     for (let attempt = 0; attempt < INSTAGRAM_STATUS_MAX_ATTEMPTS; attempt++) {
         await sleep(INSTAGRAM_STATUS_POLL_INTERVAL_MS);
         const statusRes = await fetch(
-            `${GRAPH}/${created.id}?fields=status,status_code,error_message&access_token=${args.account.accessToken}`,
+            `${GRAPH}/${containerId}?fields=status,status_code,error_message&access_token=${args.account.accessToken}`,
             { cache: "no-store" },
         );
-        const statusData = await statusRes.json();
+        const { json: statusData, text: statusText } = await readJsonSafe(statusRes);
         const statusCode = String(
             statusData.status_code ?? statusData.status ?? "UNKNOWN",
         );
+
+        if (!statusRes.ok) {
+            await args.onStatus?.(
+                `Instagram status HTTP ${statusRes.status}: ${statusText || "empty response"}`,
+            );
+        }
 
         if (statusCode !== lastStatusCode) {
             lastStatusCode = statusCode;
             await args.onStatus?.(
                 `Instagram processing status: ${statusCode}${statusData.error_message ? ` (${statusData.error_message as string})` : ""}`,
+            );
+        }
+
+        if (statusCode === "UNKNOWN") {
+            await args.onStatus?.(
+                `Instagram status payload: ${statusText || "empty response"}`,
             );
         }
 
@@ -250,9 +263,9 @@ async function uploadToInstagram(args: {
 
     const publishRes = await fetch(`${GRAPH}/${args.account.igUserId}/media_publish`, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-            creation_id: created.id as string,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            creation_id: containerId,
             access_token: args.account.accessToken,
         }),
     });
@@ -358,11 +371,6 @@ export async function POST(
         });
         const title = [verseKey, surahName, reciterName].filter(Boolean).join(" ");
 
-        const baseUrl = getBaseUrl();
-        const hostname = new URL(baseUrl).hostname;
-        const canUsePublicFileUrl = !isPrivateHostname(hostname);
-        const fileUrl = `${baseUrl}/api/ffmpeg/experiments/${id}/file`;
-
         const results: UploadResult[] = [];
         await appendLog(
             `Upload started for ${accounts.length} account${accounts.length === 1 ? "" : "s"}`,
@@ -400,18 +408,12 @@ export async function POST(
                     continue;
                 }
 
-                if (!canUsePublicFileUrl) {
-                    throw new Error(
-                        "Instagram publishing needs a public app URL. localhost/private hosts cannot be fetched by Meta.",
-                    );
-                }
-
                 const uploaded = await uploadToInstagram({
                     account: {
                         igUserId: account.igUserId as string | undefined,
                         accessToken: account.accessToken as string | undefined,
                     },
-                    fileUrl,
+                    filePath: resolved.doc.outputPath,
                     caption,
                     onStatus: (message) =>
                         appendLog(

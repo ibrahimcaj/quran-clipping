@@ -1,0 +1,19 @@
+{
+  "name": "clips",
+  "version": "1.0.0",
+  "scripts": {
+    "download": "ts-node src/download.ts",
+    "process": "ts-node src/process.ts",
+    "crop": "ts-node src/crop.ts",
+    "vertical": "ts-node src/vertical.ts",
+    "fetch-clips": "ts-node src/fetch-clips.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

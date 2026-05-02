@@ -1,0 +1,1 @@
+ALWAYS write the most simple, clear and minimal code. Every change you make must complement current state of codebase. Comments must ALL be lowercase and describe not _what_ it does, but _why_ it does what it does.

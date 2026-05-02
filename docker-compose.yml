@@ -1,0 +1,15 @@
+services:
+    mongodb:
+        image: mongo:7
+        container_name: quran-mongo
+        ports:
+            - "27018:27017"
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: quran
+            MONGO_INITDB_ROOT_PASSWORD: qK9mXpL3nR7vBw2T
+        volumes:
+            - quran-mongo-data:/data/db
+        restart: unless-stopped
+
+volumes:
+    quran-mongo-data:

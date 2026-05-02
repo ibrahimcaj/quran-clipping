@@ -1,0 +1,1533 @@
+import * as fs from "fs";
+import * as path from "path";
+import { createRequire } from "module";
+import { spawn } from "child_process";
+import { MongoClient, ObjectId } from "mongodb";
+import dotenv from "dotenv";
+import { PREPARED_VIDEOS_DIR, safeSlug } from "../lib/storage";
+
+dotenv.config({ path: path.join(process.cwd(), ".env.local") });
+
+const require = createRequire(import.meta.url);
+const Ffmpeg = require("ffmpeg");
+
+const RECITER_PATHS: Record<
+    string,
+    { cdn: string; path: string; label: string }
+> = {
+    "1": {
+        cdn: "https://audio.qurancdn.com",
+        path: "AbdulBaset/Mujawwad/mp3",
+        label: "Abdul Basit (Mujawwad)",
+    },
+    "2": {
+        cdn: "https://audio.qurancdn.com",
+        path: "AbdulBaset/Murattal/mp3",
+        label: "Abdul Basit (Murattal)",
+    },
+    "3": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Sudais/mp3",
+        label: "Abdur-Rahman As-Sudais",
+    },
+    "4": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Shatri/mp3",
+        label: "Abu Bakr Al-Shatri",
+    },
+    "5": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Rifai/mp3",
+        label: "Hani Ar-Rifai",
+    },
+    "6": {
+        cdn: "https://mirrors.quranicaudio.com/everyayah",
+        path: "Husary_64kbps",
+        label: "Mahmoud Al-Husary",
+    },
+    "7": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Alafasy/mp3",
+        label: "Mishari Al-Afasy",
+    },
+    "8": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Minshawi/Mujawwad/mp3",
+        label: "Mohamed Al-Minshawi (Mujawwad)",
+    },
+    "9": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Minshawi/Murattal/mp3",
+        label: "Mohamed Al-Minshawi (Murattal)",
+    },
+    "10": {
+        cdn: "https://audio.qurancdn.com",
+        path: "Shuraym/mp3",
+        label: "Saud Ash-Shuraym",
+    },
+    "11": {
+        cdn: "https://mirrors.quranicaudio.com/everyayah",
+        path: "Mohammad_al_Tablaway_128kbps",
+        label: "Mohamed Al-Tablawi",
+    },
+    "12": {
+        cdn: "https://mirrors.quranicaudio.com/everyayah",
+        path: "Husary_Muallim_128kbps",
+        label: "Mahmoud Al-Husary (Muallim)",
+    },
+};
+
+type VerseWord = {
+    id: number;
+    position: number;
+    text_uthmani?: string;
+    text_imlaei?: string;
+    text_imlaei_simple?: string;
+    text?: string;
+    translation?: { text?: string; language_name?: string };
+    char_type_name: string;
+    timestamp_from?: number;
+    timestamp_to?: number;
+};
+
+type VersePayload = {
+    verse_key: string;
+    text_uthmani?: string;
+    text_imlaei?: string;
+    text_imlaei_simple?: string;
+    words?: VerseWord[];
+    audio?: { segments?: number[][] };
+};
+
+type VideoDoc = {
+    _id: ObjectId;
+    originalFilename: string;
+    filePath: string;
+    name?: string;
+    durationSeconds?: number;
+};
+
+type TimedVideo = VideoDoc & {
+    durationSeconds: number;
+};
+
+type PlannedSegment = TimedVideo & {
+    clipDurationSeconds: number;
+    startOffsetSeconds: number;
+    preparedPath: string;
+};
+
+const OUTPUT_FPS = 30;
+const SEGMENT_END_MARGIN_SECONDS = 0.25;
+const TEXT_CARD_SIZE = 320;
+const PIXELATE_SIZE = 720;
+const TEXT_CARD_ALPHA = 0.9;
+const TEXT_GLOW_ALPHA = 1;
+const TEXT_GLOW_SIGMA = 100;
+const TEXT_GLOW_COLOR = "0x0E3A72";
+const TEXT_INNER_GLOW_ALPHA = 0.7;
+const TEXT_INNER_GLOW_SIGMA = 6;
+const VIDEO_PIXELATE_SIZE = 720;
+
+const OAUTH_BASE = {
+    prelive: "https://prelive-oauth2.quran.foundation",
+    production: "https://oauth2.quran.foundation",
+} as const;
+
+const API_BASE = {
+    prelive: "https://apis-prelive.quran.foundation",
+    production: "https://apis.quran.foundation",
+} as const;
+
+function ensureDir(dir: string) {
+    fs.mkdirSync(dir, { recursive: true });
+}
+
+function qfEnv(): keyof typeof OAUTH_BASE {
+    return process.env.QF_ENV === "production" ? "production" : "prelive";
+}
+
+function getApiBase() {
+    return API_BASE[qfEnv()];
+}
+
+function getClientId() {
+    return process.env.QF_CLIENT_ID ?? "";
+}
+
+function createExperimentOutputPaths(experimentId: string) {
+    const experimentsDir = path.join(
+        process.cwd(),
+        "..",
+        "storage",
+        "experiments",
+    );
+    ensureDir(experimentsDir);
+    const workDir = path.join(experimentsDir, experimentId);
+    ensureDir(workDir);
+    const preparedDir = path.join(workDir, "prepared");
+    ensureDir(preparedDir);
+
+    return {
+        workDir,
+        preparedDir,
+        concatList: path.join(workDir, "concat.txt"),
+        stitched: path.join(workDir, "stitched.mp4"),
+        lutted: path.join(workDir, "lutted.mp4"),
+        postprocessed: path.join(workDir, "postprocessed.mp4"),
+        overlaid: path.join(workDir, "overlaid.mp4"),
+        textOverlaid: path.join(workDir, "text_overlaid.mp4"),
+        verseAudio: path.join(workDir, "verse.mp3"),
+    };
+}
+
+function getPreparedVideoPath(videoId: string) {
+    ensureDir(PREPARED_VIDEOS_DIR);
+    return path.join(PREPARED_VIDEOS_DIR, `${videoId}.mp4`);
+}
+
+async function inspectVideo(inputPath: string) {
+    return new Promise<void>((resolve, reject) => {
+        try {
+            new Ffmpeg(inputPath, (error: Error | null) => {
+                if (error) reject(error);
+                else resolve();
+            });
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+async function runProcess(
+    command: string,
+    args: string[],
+    onLine?: (line: string) => Promise<void> | void,
+) {
+    return new Promise<void>((resolve, reject) => {
+        const proc = spawn(command, args, {
+            stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stderr = "";
+        let buffer = "";
+        let lastLoggedAt = 0;
+
+        proc.stderr.on("data", async (chunk) => {
+            const text = chunk.toString();
+            stderr += text;
+            buffer += text;
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop() ?? "";
+
+            for (const rawLine of lines) {
+                const line = rawLine.trim();
+                if (!line) continue;
+
+                const interesting =
+                    line.includes("time=") ||
+                    line.includes("Duration:") ||
+                    line.startsWith("Input #") ||
+                    line.startsWith("Output #") ||
+                    line.includes("Stream mapping");
+
+                const now = Date.now();
+                if (interesting && onLine && now - lastLoggedAt > 700) {
+                    lastLoggedAt = now;
+                    await onLine(line);
+                }
+            }
+        });
+
+        proc.on("error", reject);
+        proc.on("close", (code) => {
+            if (code === 0) {
+                resolve();
+                return;
+            }
+            reject(
+                new Error(
+                    stderr.trim() || `${command} exited with code ${code}`,
+                ),
+            );
+        });
+    });
+}
+
+async function ffprobeDuration(inputPath: string): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+        const proc = spawn(
+            "ffprobe",
+            [
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                inputPath,
+            ],
+            { stdio: ["ignore", "pipe", "pipe"] },
+        );
+
+        let stdout = "";
+        let stderr = "";
+        proc.stdout.on("data", (chunk) => {
+            stdout += chunk.toString();
+        });
+        proc.stderr.on("data", (chunk) => {
+            stderr += chunk.toString();
+        });
+        proc.on("error", reject);
+        proc.on("close", (code) => {
+            if (code !== 0) {
+                reject(new Error(stderr.trim() || "ffprobe failed"));
+                return;
+            }
+            const seconds = Number.parseFloat(stdout.trim());
+            if (!Number.isFinite(seconds) || seconds <= 0) {
+                reject(new Error(`Invalid duration for ${inputPath}`));
+                return;
+            }
+            resolve(seconds);
+        });
+    });
+}
+
+async function fetchToken() {
+    const clientId = process.env.QF_CLIENT_ID;
+    const clientSecret = process.env.QF_CLIENT_SECRET;
+    if (!clientId || !clientSecret) {
+        throw new Error("QF_CLIENT_ID and QF_CLIENT_SECRET must be set");
+    }
+
+    const creds = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    const res = await fetch(`${OAUTH_BASE[qfEnv()]}/oauth2/token`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Authorization: `Basic ${creds}`,
+        },
+        body: new URLSearchParams({
+            grant_type: "client_credentials",
+            scope: "content",
+        }),
+    });
+
+    if (!res.ok) {
+        throw new Error(
+            `QF token request failed: ${res.status} ${await res.text()}`,
+        );
+    }
+
+    const data = (await res.json()) as { access_token: string };
+    return data.access_token;
+}
+
+function verseAudioUrl(verseKey: string, recitationId: string) {
+    const entry = RECITER_PATHS[recitationId];
+    if (!entry) throw new Error("Unsupported reciter");
+    const [chapter, verse] = verseKey.split(":");
+    if (!chapter || !verse) throw new Error("Invalid verse key");
+    const file = `${chapter.padStart(3, "0")}${verse.padStart(3, "0")}.mp3`;
+    return `${entry.cdn}/${entry.path}/${file}`;
+}
+
+async function downloadFile(url: string, filePath: string) {
+    const res = await fetch(url);
+    if (!res.ok) {
+        throw new Error(`Failed to download file: ${res.status}`);
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+}
+
+async function fetchVerse(endpoint: string): Promise<VersePayload> {
+    const token = await fetchToken();
+    const response = await fetch(endpoint, {
+        headers: {
+            "x-auth-token": token,
+            "x-client-id": getClientId(),
+        },
+    });
+    const text = await response.text();
+    const data = JSON.parse(text) as { verse?: VersePayload; error?: string };
+    if (!response.ok || !data.verse) {
+        throw new Error(data.error ?? "Failed to fetch verse");
+    }
+    return data.verse;
+}
+
+function verseEndpoint(path: string, recitationId: string) {
+    const params = new URLSearchParams({
+        words: "true",
+        audio: recitationId,
+        translations: "131",
+        fields: "text_uthmani,text_imlaei,text_imlaei_simple,verse_key",
+        word_fields:
+            "text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1",
+    });
+    return `${getApiBase()}/content/api/v4/verses/${path}?${params.toString()}`;
+}
+
+async function getRandomVerse(recitationId: string): Promise<VersePayload> {
+    return fetchVerse(verseEndpoint("random", recitationId));
+}
+
+async function getVerseByKey(
+    verseKey: string,
+    recitationId: string,
+): Promise<VersePayload> {
+    return fetchVerse(verseEndpoint(`by_key/${verseKey}`, recitationId));
+}
+
+async function selectRenderableVerse(
+    recitationId: string,
+    maxCoverageSeconds: number,
+    minAyahSeconds: number,
+    maxAyahSeconds: number,
+    log: (message: string) => Promise<void>,
+) {
+    const attempts = 12;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        const verse = await getRandomVerse(recitationId);
+        await log(`Candidate verse ${attempt}/${attempts}: ${verse.verse_key}`);
+
+        const tempAudioPath = path.join(
+            process.cwd(),
+            "..",
+            "storage",
+            "experiments",
+            `.probe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`,
+        );
+
+        try {
+            await downloadFile(
+                verseAudioUrl(verse.verse_key, recitationId),
+                tempAudioPath,
+            );
+            const durationSeconds = await ffprobeDuration(tempAudioPath);
+            if (durationSeconds < minAyahSeconds) {
+                await log(
+                    `Skipped ${verse.verse_key}: ${durationSeconds.toFixed(2)}s is shorter than minimum ${minAyahSeconds.toFixed(2)}s`,
+                );
+                continue;
+            }
+            if (durationSeconds > maxAyahSeconds) {
+                await log(
+                    `Skipped ${verse.verse_key}: ${durationSeconds.toFixed(2)}s exceeds configured max ${maxAyahSeconds.toFixed(2)}s`,
+                );
+                continue;
+            }
+            if (durationSeconds <= maxCoverageSeconds) {
+                return { verse, durationSeconds };
+            }
+            await log(
+                `Skipped ${verse.verse_key}: ${durationSeconds.toFixed(2)}s exceeds ${maxCoverageSeconds.toFixed(2)}s of unique coverage`,
+            );
+        } finally {
+            if (fs.existsSync(tempAudioPath)) {
+                fs.rmSync(tempAudioPath, { force: true });
+            }
+        }
+    }
+
+    throw new Error(
+        `Could not find a random verse that fits ${maxCoverageSeconds.toFixed(2)}s of available unique footage`,
+    );
+}
+
+function chooseRandom<T>(items: T[]) {
+    return items[Math.floor(Math.random() * items.length)];
+}
+
+function shuffle<T>(items: T[]) {
+    const next = [...items];
+    for (let index = next.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+    }
+    return next;
+}
+
+function randomOffset(maxStart: number) {
+    if (maxStart <= 0) return 0;
+    return Math.random() * maxStart;
+}
+
+function buildVideoSequence(
+    videos: TimedVideo[],
+    targetSeconds: number,
+): PlannedSegment[] {
+    const sequence: PlannedSegment[] = [];
+    let total = 0;
+    for (const chosen of shuffle(videos)) {
+        if (total >= targetSeconds) break;
+        const remaining = targetSeconds - total;
+        const clipDurationSeconds = Math.min(
+            chosen.durationSeconds,
+            5,
+            remaining,
+        );
+        if (clipDurationSeconds <= 0) continue;
+        const startOffsetSeconds = randomOffset(
+            Math.max(
+                chosen.durationSeconds -
+                    clipDurationSeconds -
+                    SEGMENT_END_MARGIN_SECONDS,
+                0,
+            ),
+        );
+
+        sequence.push({
+            ...chosen,
+            clipDurationSeconds,
+            startOffsetSeconds,
+            preparedPath: getPreparedVideoPath(chosen._id.toString()),
+        });
+        total += clipDurationSeconds;
+    }
+
+    if (total < targetSeconds) {
+        throw new Error(
+            `Not enough unique video coverage for this verse. Need ${targetSeconds.toFixed(2)}s, only have ${total.toFixed(2)}s across unique clips.`,
+        );
+    }
+
+    return sequence;
+}
+
+function makeOutputFilename(
+    verseKey: string,
+    reciterName: string,
+    epochMs: number,
+) {
+    const verseSlug = safeSlug(verseKey.replace(":", "-"));
+    const reciterSlug = safeSlug(reciterName);
+    return `${verseSlug}_${reciterSlug}_${epochMs}.mp4`;
+}
+
+function cleanupIntermediateArtifacts(
+    paths: ReturnType<typeof createExperimentOutputPaths>,
+    finalPath: string,
+) {
+    const filesToDelete = [
+        paths.concatList,
+        paths.stitched,
+        paths.lutted,
+        paths.postprocessed,
+        paths.overlaid,
+        paths.textOverlaid,
+        paths.verseAudio,
+    ];
+    for (const filePath of filesToDelete) {
+        if (fs.existsSync(filePath) && filePath !== finalPath) {
+            fs.rmSync(filePath, { force: true });
+        }
+    }
+    if (fs.existsSync(paths.preparedDir)) {
+        fs.rmSync(paths.preparedDir, { recursive: true, force: true });
+    }
+}
+
+function minimumAcceptedSegmentDuration(expectedSeconds: number) {
+    if (expectedSeconds <= 1)
+        return Math.max(expectedSeconds - 0.08, expectedSeconds * 0.8);
+    if (expectedSeconds <= 3)
+        return Math.max(expectedSeconds - 0.12, expectedSeconds * 0.88);
+    return Math.max(expectedSeconds - 0.18, expectedSeconds * 0.94);
+}
+
+async function createValidatedSegment(
+    video: PlannedSegment,
+    preparedDurationSeconds: number,
+    outputPath: string,
+    log: (message: string) => Promise<void>,
+) {
+    const expectedSeconds = video.clipDurationSeconds;
+    const minimumDuration = minimumAcceptedSegmentDuration(expectedSeconds);
+    const attempts = 4;
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        const safeMaxStart = Math.max(
+            preparedDurationSeconds -
+                expectedSeconds -
+                SEGMENT_END_MARGIN_SECONDS,
+            0,
+        );
+        const startOffsetSeconds =
+            attempt === 1
+                ? Math.min(video.startOffsetSeconds, safeMaxStart)
+                : randomOffset(safeMaxStart);
+
+        await log(
+            `Preparing ${video.originalFilename} from ${startOffsetSeconds.toFixed(2)}s for ${expectedSeconds.toFixed(2)}s (attempt ${attempt}/${attempts})`,
+        );
+
+        await runProcess(
+            "ffmpeg",
+            [
+                "-y",
+                "-i",
+                video.preparedPath,
+                "-vf",
+                `trim=start=${startOffsetSeconds.toFixed(3)}:duration=${expectedSeconds.toFixed(3)},setpts=PTS-STARTPTS,fps=${OUTPUT_FPS},format=yuv420p`,
+                "-an",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "18",
+                "-pix_fmt",
+                "yuv420p",
+                outputPath,
+            ],
+            log,
+        );
+
+        const actualDuration = await ffprobeDuration(outputPath);
+        if (actualDuration >= minimumDuration) {
+            return {
+                actualDuration,
+                startOffsetSeconds,
+            };
+        }
+
+        await log(
+            `Discarded short segment from ${video.originalFilename}: ${actualDuration.toFixed(2)}s produced, expected ${expectedSeconds.toFixed(2)}s`,
+        );
+        fs.rmSync(outputPath, { force: true });
+    }
+
+    throw new Error(
+        `Could not extract a stable segment from ${video.originalFilename}`,
+    );
+}
+
+async function getVideoDurationSeconds(
+    db: Awaited<ReturnType<MongoClient["db"]>>,
+    video: VideoDoc,
+) {
+    if (
+        typeof video.durationSeconds === "number" &&
+        Number.isFinite(video.durationSeconds) &&
+        video.durationSeconds > 0
+    ) {
+        return video.durationSeconds;
+    }
+    const durationSeconds = await ffprobeDuration(video.filePath);
+    await db
+        .collection("videos")
+        .updateOne(
+            { _id: video._id },
+            { $set: { durationSeconds, updatedAt: new Date() } },
+        );
+    return durationSeconds;
+}
+
+async function collectTimedVideos(db: Awaited<ReturnType<MongoClient["db"]>>) {
+    const videos = (await db
+        .collection("videos")
+        .find()
+        .toArray()) as unknown as VideoDoc[];
+    const timedVideos: TimedVideo[] = [];
+
+    for (const video of videos) {
+        if (!video.filePath || !fs.existsSync(video.filePath)) continue;
+        const durationSeconds = await getVideoDurationSeconds(db, video);
+        timedVideos.push({ ...video, durationSeconds });
+    }
+
+    return timedVideos;
+}
+
+// mirrors the segment-merging logic in /api/qf/verses/route.ts
+function mergeSegmentTimings(
+    words: VerseWord[],
+    segments: number[][] | undefined,
+): VerseWord[] {
+    if (!segments?.length) return words;
+    const byPosition = new Map<
+        number,
+        { timestamp_from: number; timestamp_to: number }
+    >();
+    for (const seg of segments) {
+        let position: number | null = null;
+        let from: number | null = null;
+        let to: number | null = null;
+        if (seg.length >= 4) {
+            position = typeof seg[1] === "number" ? seg[1] : null;
+            from = typeof seg[2] === "number" ? seg[2] : null;
+            to = typeof seg[3] === "number" ? seg[3] : null;
+        } else if (seg.length === 3) {
+            position = typeof seg[0] === "number" ? seg[0] : null;
+            from = typeof seg[1] === "number" ? seg[1] : null;
+            to = typeof seg[2] === "number" ? seg[2] : null;
+        }
+        if (position !== null && from !== null && to !== null) {
+            byPosition.set(position, {
+                timestamp_from: from,
+                timestamp_to: to,
+            });
+        }
+    }
+    return words.map((word) => {
+        const timing = word.position
+            ? byPosition.get(word.position)
+            : undefined;
+        return timing ? { ...word, ...timing } : word;
+    });
+}
+
+function getOverlayWordText(word: VerseWord): string {
+    return word.text_imlaei ?? word.text_uthmani ?? word.text ?? "";
+}
+
+function getOverlayWordTranslation(word: VerseWord): string {
+    return (word.translation?.text ?? "").replace(/<[^>]+>/g, "").trim();
+}
+
+function escapeAssText(text: string): string {
+    return text
+        .replace(/\\/g, "\\\\")
+        .replace(/{/g, "\\{")
+        .replace(/}/g, "\\}")
+        .replace(/\r?\n/g, "\\N");
+}
+
+function formatAssTimestamp(seconds: number): string {
+    const centiseconds = Math.max(0, Math.round(seconds * 100));
+    const hours = Math.floor(centiseconds / 360000);
+    const minutes = Math.floor((centiseconds % 360000) / 6000);
+    const secs = Math.floor((centiseconds % 6000) / 100);
+    const cs = centiseconds % 100;
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+}
+
+function createAssCard(arabic: string, english: string, size: number): string {
+    // single middle-center dialogue so the whole block is treated as one unit
+    const text = english
+        ? `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}{\\N\\fnArial\\fs11}${escapeAssText(english)}`
+        : `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}`;
+    return [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        `PlayResX: ${size}`,
+        `PlayResY: ${size}`,
+        "ScaledBorderAndShadow: yes",
+        "WrapStyle: 0",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        `Style: Default,Geeza Pro,36,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1`,
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+        `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,${text}`,
+        "",
+    ].join("\n");
+}
+
+function buildSubtitleCardFilter(
+    inputLabel: string,
+    assPath: string,
+    outputLabel: string,
+): string {
+    const escapedAssPath = assPath.replace(/\\/g, "\\\\").replace(/:/g, "\\:");
+    return [
+        `[${inputLabel}]format=rgba,ass=${escapedAssPath},split=3[${outputLabel}Base][${outputLabel}GlowSrc][${outputLabel}InnerSrc]`,
+        `[${outputLabel}Base]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,format=gray[${outputLabel}SharpMask]`,
+        `[${outputLabel}GlowSrc]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${TEXT_GLOW_SIGMA},format=gray[${outputLabel}GlowMask]`,
+        `[${outputLabel}InnerSrc]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${TEXT_INNER_GLOW_SIGMA},format=gray[${outputLabel}InnerMask]`,
+        `color=c=white:s=1080x1080:r=1,format=rgba[${outputLabel}White]`,
+        `color=c=white:s=1080x1080:r=1,format=rgba[${outputLabel}InnerWhite]`,
+        `color=c=${TEXT_GLOW_COLOR}:s=1080x1080:r=1,format=rgba[${outputLabel}GlowColor]`,
+        `[${outputLabel}SharpMask]colorchannelmixer=aa=${TEXT_CARD_ALPHA}[${outputLabel}SharpAlpha]`,
+        `[${outputLabel}GlowMask]colorchannelmixer=aa=${TEXT_GLOW_ALPHA}[${outputLabel}GlowAlpha]`,
+        `[${outputLabel}InnerMask]colorchannelmixer=aa=${TEXT_INNER_GLOW_ALPHA}[${outputLabel}InnerAlpha]`,
+        `[${outputLabel}White][${outputLabel}SharpAlpha]alphamerge[${outputLabel}Sharp]`,
+        `[${outputLabel}GlowColor][${outputLabel}GlowAlpha]alphamerge[${outputLabel}Glow]`,
+        `[${outputLabel}InnerWhite][${outputLabel}InnerAlpha]alphamerge[${outputLabel}Inner]`,
+        `[${outputLabel}Glow][${outputLabel}Sharp]overlay=format=auto[${outputLabel}Mid]`,
+        `[${outputLabel}Mid][${outputLabel}Inner]overlay=format=auto[${outputLabel}]`,
+    ].join(";");
+}
+
+async function renderSubtitleCardPngBatch(
+    cards: {
+        arabic: string;
+        english: string;
+        assPath: string;
+        outputPath: string;
+    }[],
+    log: (msg: string) => Promise<void>,
+) {
+    for (const card of cards) {
+        fs.writeFileSync(
+            card.assPath,
+            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE),
+            "utf8",
+        );
+    }
+
+    const ffArgs: string[] = ["-y"];
+    const filterParts: string[] = [];
+
+    for (const [index, card] of cards.entries()) {
+        ffArgs.push(
+            "-f",
+            "lavfi",
+            "-i",
+            `color=c=black@0.0:s=${TEXT_CARD_SIZE}x${TEXT_CARD_SIZE}:r=1,format=rgba`,
+        );
+        filterParts.push(
+            buildSubtitleCardFilter(`${index}:v`, card.assPath, `card${index}`),
+        );
+    }
+
+    ffArgs.push("-filter_complex", filterParts.join(";"));
+
+    for (const [index, card] of cards.entries()) {
+        ffArgs.push(
+            "-map",
+            `[card${index}]`,
+            "-frames:v",
+            "1",
+            "-update",
+            "1",
+            card.outputPath,
+        );
+    }
+
+    await runProcess("ffmpeg", ffArgs, log);
+}
+
+async function main() {
+    const id = process.argv[2];
+    if (!id) {
+        throw new Error("Experiment id is required");
+    }
+
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+        throw new Error("MONGODB_URI must be set");
+    }
+
+    const client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
+    await client.connect();
+    const db = client.db("clips");
+    const collection = db.collection("ffmpegExperiments");
+    let wasCancelled = false;
+    let currentId: ObjectId | null = null;
+
+    const log = async (message: string) => {
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $push: {
+                    logs: {
+                        message,
+                        createdAt: new Date().toISOString(),
+                    },
+                },
+                $set: {
+                    updatedAt: new Date(),
+                },
+            },
+        );
+    };
+
+    const setStep = async (
+        step: string,
+        status: "queued" | "running" | "completed" | "failed" = "running",
+    ) => {
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $set: {
+                    currentStep: step,
+                    status,
+                    updatedAt: new Date(),
+                },
+            },
+        );
+        await log(step);
+    };
+
+    const markCancelled = async (message: string) => {
+        if (!currentId || wasCancelled) return;
+        wasCancelled = true;
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $set: {
+                    status: "cancelled",
+                    currentStep: "Cancelled",
+                    workerPid: null,
+                    updatedAt: new Date(),
+                },
+                $push: {
+                    logs: {
+                        message,
+                        createdAt: new Date().toISOString(),
+                    },
+                },
+            },
+        );
+    };
+
+    process.on("SIGTERM", () => {
+        void markCancelled("Processing cancelled").finally(() => {
+            process.exit(0);
+        });
+    });
+
+    try {
+        currentId = new ObjectId(id);
+        const experiment = await collection.findOne({ _id: currentId });
+        if (!experiment) throw new Error("Experiment not found");
+
+        const existingVerseKey = experiment.verseKey as
+            | string
+            | null
+            | undefined;
+        const existingRecitationId = experiment.recitationId as
+            | string
+            | null
+            | undefined;
+        const requiresSelectedVerse =
+            experiment.operation === "mix_random_verse";
+
+        if (
+            (existingVerseKey && !existingRecitationId) ||
+            (!existingVerseKey && existingRecitationId)
+        ) {
+            throw new Error(
+                "Experiment has incomplete verse selection metadata",
+            );
+        }
+        if (requiresSelectedVerse && (!existingVerseKey || !existingRecitationId)) {
+            throw new Error(
+                "This experiment requires the verse selected in the UI; no verse was stored on the job",
+            );
+        }
+
+        let recitationId: string;
+        let reciterName: string;
+
+        if (existingVerseKey && existingRecitationId) {
+            recitationId = existingRecitationId;
+            reciterName =
+                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
+            await log(`Reusing reciter: ${reciterName}`);
+        } else {
+            await setStep("Choose enabled reciter");
+            const config = await db
+                .collection("configuration")
+                .findOne({ type: "reciters" });
+            const enabledIds = (
+                (config?.enabledIds as number[] | undefined) ?? []
+            ).map(String);
+            if (enabledIds.length === 0)
+                throw new Error("No enabled reciters found");
+            recitationId = chooseRandom(enabledIds);
+            reciterName =
+                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
+            await log(`Selected reciter: ${reciterName}`);
+        }
+
+        await setStep("Collect available videos");
+        const timedVideos = await collectTimedVideos(db);
+        if (timedVideos.length === 0) {
+            throw new Error("No valid videos available");
+        }
+        const maxCoverageSeconds = timedVideos.reduce(
+            (sum, video) => sum + Math.min(video.durationSeconds, 5),
+            0,
+        );
+        await log(
+            `Unique usable video coverage: ${maxCoverageSeconds.toFixed(2)}s`,
+        );
+
+        const videoConfigDoc = await db
+            .collection("configuration")
+            .findOne({ type: "video" });
+        const randomAyahMinSeconds =
+            typeof videoConfigDoc?.randomAyahMinSeconds === "number"
+                ? videoConfigDoc.randomAyahMinSeconds
+                : 0;
+        const randomAyahMaxSeconds =
+            typeof videoConfigDoc?.randomAyahMaxSeconds === "number"
+                ? videoConfigDoc.randomAyahMaxSeconds
+                : 30;
+
+        let verse: VersePayload;
+        let targetSeconds: number;
+
+        if (existingVerseKey && existingRecitationId) {
+            await setStep("Fetch selected verse");
+            verse = await getVerseByKey(existingVerseKey, recitationId);
+            const tempAudioPath = path.join(
+                process.cwd(),
+                "..",
+                "storage",
+                "experiments",
+                `.probe-${Date.now()}.mp3`,
+            );
+            try {
+                await downloadFile(
+                    verseAudioUrl(existingVerseKey, recitationId),
+                    tempAudioPath,
+                );
+                targetSeconds = await ffprobeDuration(tempAudioPath);
+            } finally {
+                if (fs.existsSync(tempAudioPath))
+                    fs.rmSync(tempAudioPath, { force: true });
+            }
+            await log(
+                `Using selected verse ${existingVerseKey} (${targetSeconds.toFixed(2)}s)`,
+            );
+        } else {
+            await setStep("Fetch random verse");
+            ({ verse, durationSeconds: targetSeconds } =
+                await selectRenderableVerse(
+                    recitationId,
+                    maxCoverageSeconds,
+                    randomAyahMinSeconds,
+                    randomAyahMaxSeconds,
+                    log,
+                ));
+            await log(`Selected verse ${verse.verse_key}`);
+        }
+
+        const verseKey = verse.verse_key;
+        const verseText = verse.text_uthmani ?? null;
+
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $set: {
+                    recitationId,
+                    reciterName,
+                    verseKey,
+                    verseText,
+                    updatedAt: new Date(),
+                },
+            },
+        );
+
+        const paths = createExperimentOutputPaths(id);
+        const outputName = makeOutputFilename(
+            verseKey,
+            reciterName,
+            Date.now(),
+        );
+        const finalPath = path.join(paths.workDir, outputName);
+
+        await setStep("Download verse audio");
+        await downloadFile(
+            verseAudioUrl(verseKey, recitationId),
+            paths.verseAudio,
+        );
+        await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
+
+        await setStep("Choose random video sequence");
+        const sequence = buildVideoSequence(timedVideos, targetSeconds);
+        await log(
+            `Sequence: ${sequence
+                .map(
+                    (video) =>
+                        `${video.originalFilename} (${video.startOffsetSeconds.toFixed(2)}s + ${video.clipDurationSeconds.toFixed(2)}s)`,
+                )
+                .join(" -> ")}`,
+        );
+
+        let lutPath: string | null = null;
+        let lutName: string | null = null;
+        if (experiment.lutId) {
+            const lut = await db
+                .collection("luts")
+                .findOne({ _id: experiment.lutId as ObjectId });
+            lutPath = lut?.filePath ?? null;
+            lutName = (lut?.originalFilename as string | undefined) ?? null;
+        } else {
+            const luts = await db.collection("luts").find().toArray();
+            if (luts.length > 0) {
+                const randomLut = chooseRandom(luts);
+                lutPath = (randomLut.filePath as string | undefined) ?? null;
+                lutName =
+                    (randomLut.originalFilename as string | undefined) ?? null;
+                if (randomLut._id) {
+                    await collection.updateOne(
+                        { _id: currentId },
+                        {
+                            $set: {
+                                lutId: randomLut._id,
+                                updatedAt: new Date(),
+                            },
+                        },
+                    );
+                }
+            }
+        }
+        if (lutName) {
+            await log(`Selected LUT: ${lutName}`);
+        } else {
+            await log("No LUT selected or available");
+        }
+
+        let overlayPath: string | null = null;
+        let overlayName: string | null = null;
+        let overlayBlendMode: string | null = null;
+        if (experiment.overlayId) {
+            const overlay = await db
+                .collection("overlays")
+                .findOne({ _id: experiment.overlayId as ObjectId });
+            overlayPath = (overlay?.filePath as string | null) ?? null;
+            overlayName =
+                (overlay?.name as string | undefined) ??
+                (overlay?.originalFilename as string | undefined) ??
+                null;
+            overlayBlendMode =
+                (experiment.overlayBlendMode as string | null | undefined) ??
+                "normal";
+        }
+        if (overlayName && overlayBlendMode) {
+            await log(`Selected overlay: ${overlayName} (${overlayBlendMode})`);
+        } else {
+            await log("No overlay selected");
+        }
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $set: {
+                    sourceVideoIds: sequence.map((video) =>
+                        video._id.toString(),
+                    ),
+                    sourceVideoNames: sequence.map(
+                        (video) => video.originalFilename,
+                    ),
+                    sourceVideoCount: sequence.length,
+                    outputName,
+                    overlayName,
+                    overlayBlendMode,
+                    updatedAt: new Date(),
+                },
+            },
+        );
+
+        await setStep("Prepare reusable square masters");
+        const preparedDurations = new Map<string, number>();
+        for (const segment of sequence) {
+            if (fs.existsSync(segment.preparedPath)) {
+                await log(
+                    `Reusing prepared master for ${segment.originalFilename}`,
+                );
+            } else {
+                await log(
+                    `Preparing square master for ${segment.originalFilename}`,
+                );
+                await runProcess(
+                    "ffmpeg",
+                    [
+                        "-y",
+                        "-i",
+                        segment.filePath,
+                        "-vf",
+                        `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1,fps=${OUTPUT_FPS}`,
+                        "-c:v",
+                        "libx264",
+                        "-preset",
+                        "veryfast",
+                        "-crf",
+                        "18",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-an",
+                        segment.preparedPath,
+                    ],
+                    log,
+                );
+            }
+            if (!preparedDurations.has(segment.preparedPath)) {
+                preparedDurations.set(
+                    segment.preparedPath,
+                    await ffprobeDuration(segment.preparedPath),
+                );
+            }
+        }
+
+        await setStep("Cut 5-second square segments");
+        const preparedFiles: string[] = [];
+        for (const [index, video] of sequence.entries()) {
+            const preparedPath = path.join(
+                paths.preparedDir,
+                `${String(index + 1).padStart(2, "0")}.mp4`,
+            );
+            preparedFiles.push(preparedPath);
+            const preparedDurationSeconds = preparedDurations.get(
+                video.preparedPath,
+            );
+            if (!preparedDurationSeconds) {
+                throw new Error(
+                    `Missing prepared duration for ${video.originalFilename}`,
+                );
+            }
+            await createValidatedSegment(
+                video,
+                preparedDurationSeconds,
+                preparedPath,
+                log,
+            );
+        }
+
+        await setStep("Stitch prepared clips");
+        fs.writeFileSync(
+            paths.concatList,
+            preparedFiles
+                .map((file) => `file '${file.replace(/'/g, "'\\''")}'`)
+                .join("\n"),
+            "utf8",
+        );
+
+        await runProcess(
+            "ffmpeg",
+            [
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                paths.concatList,
+                "-t",
+                targetSeconds.toFixed(3),
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "18",
+                "-pix_fmt",
+                "yuv420p",
+                "-an",
+                paths.stitched,
+            ],
+            log,
+        );
+
+        let currentVideo = paths.stitched;
+
+        if (lutPath) {
+            await setStep("Apply LUT");
+            await runProcess(
+                "ffmpeg",
+                [
+                    "-y",
+                    "-i",
+                    currentVideo,
+                    "-vf",
+                    `lut3d=file=${lutPath}`,
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "18",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-an",
+                    paths.lutted,
+                ],
+                log,
+            );
+            currentVideo = paths.lutted;
+        }
+
+        const vignetteStrength =
+            typeof videoConfigDoc?.vignette === "number"
+                ? videoConfigDoc.vignette
+                : 0;
+        const exposureStops =
+            typeof videoConfigDoc?.exposure === "number"
+                ? videoConfigDoc.exposure
+                : 0;
+        const saturationAmount =
+            typeof videoConfigDoc?.saturation === "number"
+                ? videoConfigDoc.saturation
+                : 1;
+        const audioLeadSeconds =
+            typeof videoConfigDoc?.audioLeadSeconds === "number"
+                ? videoConfigDoc.audioLeadSeconds
+                : 1.5;
+        const postFilters: string[] = [
+            `scale=${VIDEO_PIXELATE_SIZE}:${VIDEO_PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor`,
+        ];
+        if (vignetteStrength > 0)
+            postFilters.push(
+                `vignette=a=${(Math.PI * 0.9 * vignetteStrength).toFixed(4)}`,
+            );
+        if (exposureStops !== 0)
+            postFilters.push(`exposure=exposure=${exposureStops.toFixed(2)}`);
+        if (saturationAmount !== 1)
+            postFilters.push(`eq=saturation=${saturationAmount.toFixed(2)}`);
+
+        if (postFilters.length > 0) {
+            await setStep("Apply post-processing");
+            await runProcess(
+                "ffmpeg",
+                [
+                    "-y",
+                    "-i",
+                    currentVideo,
+                    "-vf",
+                    postFilters.join(","),
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "18",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-an",
+                    paths.postprocessed,
+                ],
+                log,
+            );
+            currentVideo = paths.postprocessed;
+        }
+
+        const rawWords = [...(verse.words ?? [])].sort((a, b) => a.position - b.position);
+        const timedWords = mergeSegmentTimings(rawWords, verse.audio?.segments);
+        const textWords = timedWords.filter(
+            (w) => w.char_type_name === "word" && getOverlayWordText(w),
+        );
+        if (textWords.length > 0) {
+            await setStep("Render Arabic text overlay");
+            const pairCount = Math.ceil(textWords.length / 2);
+            const slotSeconds = targetSeconds / pairCount;
+            const pairs: {
+                arabic: string;
+                english: string;
+                startS: number;
+                endS: number;
+            }[] = [];
+            for (let i = 0; i < textWords.length; i += 2) {
+                const chunk = textWords.slice(i, i + 2);
+                const pairIndex = Math.floor(i / 2);
+                pairs.push({
+                    arabic: chunk.map((w) => getOverlayWordText(w)).join(" "),
+                    english: chunk
+                        .map((w) => getOverlayWordTranslation(w))
+                        .filter(Boolean)
+                        .join(" "),
+                    startS: pairIndex * slotSeconds,
+                    endS: (pairIndex + 1) * slotSeconds,
+                });
+            }
+
+            const pngPaths: string[] = [];
+            const cardArtifacts = pairs.map((pair, index) => {
+                const number = String(index + 1).padStart(2, "0");
+                return {
+                    arabic: pair.arabic,
+                    english: pair.english,
+                    assPath: path.join(paths.workDir, `pair_${number}.ass`),
+                    outputPath: path.join(paths.workDir, `pair_${number}.png`),
+                };
+            });
+            await renderSubtitleCardPngBatch(cardArtifacts, log);
+            for (const artifact of cardArtifacts) {
+                pngPaths.push(artifact.outputPath);
+            }
+
+            const ffArgs: string[] = ["-y", "-i", currentVideo];
+            for (const pngPath of pngPaths) {
+                ffArgs.push("-loop", "1", "-i", pngPath);
+            }
+
+            const filterParts: string[] = [];
+            let prevStream = "0:v";
+            for (let i = 0; i < pairs.length; i += 1) {
+                const { startS, endS } = pairs[i];
+                const outStream = i === pairs.length - 1 ? "vout" : `v${i}`;
+                filterParts.push(
+                    `[${prevStream}][${i + 1}:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,${startS.toFixed(3)},${endS.toFixed(3)})':eof_action=pass[${outStream}]`,
+                );
+                prevStream = outStream;
+            }
+
+            await runProcess(
+                "ffmpeg",
+                [
+                    ...ffArgs,
+                    "-filter_complex",
+                    filterParts.join(";"),
+                    "-map",
+                    "[vout]",
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "18",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-an",
+                    paths.textOverlaid,
+                ],
+                log,
+            );
+
+            for (let i = 0; i < pngPaths.length; i += 1) {
+                if (fs.existsSync(pngPaths[i]))
+                    fs.rmSync(pngPaths[i], { force: true });
+                const cardAssPath = cardArtifacts[i].assPath;
+                if (fs.existsSync(cardAssPath))
+                    fs.rmSync(cardAssPath, { force: true });
+            }
+
+            currentVideo = paths.textOverlaid;
+        }
+
+        if (overlayPath && fs.existsSync(overlayPath)) {
+            await setStep("Apply overlay image");
+            const overlayScale = `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1`;
+            const overlayFilter =
+                overlayBlendMode && overlayBlendMode !== "normal"
+                    ? `[1:v]${overlayScale},format=gbrp[ovr];[0:v]format=gbrp[base];[base][ovr]blend=all_mode=${overlayBlendMode}[vout]`
+                    : `[1:v]${overlayScale}[ovr];[0:v][ovr]overlay=0:0:eof_action=pass[vout]`;
+            await runProcess(
+                "ffmpeg",
+                [
+                    "-y",
+                    "-i",
+                    currentVideo,
+                    "-loop",
+                    "1",
+                    "-i",
+                    overlayPath,
+                    "-filter_complex",
+                    overlayFilter,
+                    "-map",
+                    "[vout]",
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "18",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-an",
+                    paths.overlaid,
+                ],
+                log,
+            );
+            currentVideo = paths.overlaid;
+        }
+
+        if (experiment.operation === "mix_random_verse") {
+            await setStep("Merge Quran audio");
+            const audioInputArgs =
+                audioLeadSeconds > 0
+                    ? [
+                          "-ss",
+                          audioLeadSeconds.toFixed(3),
+                          "-i",
+                          paths.verseAudio,
+                      ]
+                    : ["-i", paths.verseAudio];
+            await runProcess(
+                "ffmpeg",
+                [
+                    "-y",
+                    "-i",
+                    currentVideo,
+                    ...audioInputArgs,
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "1:a:0",
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "aac",
+                    "-shortest",
+                    finalPath,
+                ],
+                log,
+            );
+        } else {
+            fs.copyFileSync(currentVideo, finalPath);
+        }
+
+        cleanupIntermediateArtifacts(paths, finalPath);
+
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $set: {
+                    status: "completed",
+                    currentStep: "Complete",
+                    updatedAt: new Date(),
+                    outputPath: finalPath,
+                    outputName,
+                    outputCreatedAt: new Date(),
+                    outputExpiredAt: null,
+                    workerPid: null,
+                },
+            },
+        );
+        const expiryWorker = spawn(
+            "pnpm",
+            [
+                "exec",
+                "tsx",
+                "scripts/expire-ffmpeg-output.ts",
+                currentId.toString(),
+                finalPath,
+            ],
+            {
+                cwd: process.cwd(),
+                env: process.env,
+                detached: true,
+                stdio: "ignore",
+            },
+        );
+        expiryWorker.unref();
+        await log("Pipeline complete");
+    } catch (error) {
+        if (wasCancelled) {
+            return;
+        }
+        await collection.updateOne(
+            { _id: currentId ?? new ObjectId(id) },
+            {
+                $set: {
+                    status: "failed",
+                    currentStep: "Failed",
+                    updatedAt: new Date(),
+                    error:
+                        error instanceof Error ? error.message : String(error),
+                    workerPid: null,
+                },
+                $push: {
+                    logs: {
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                        createdAt: new Date().toISOString(),
+                    },
+                },
+            },
+        );
+        process.exitCode = 1;
+    } finally {
+        await client.close().catch(() => {});
+    }
+}
+
+void main();

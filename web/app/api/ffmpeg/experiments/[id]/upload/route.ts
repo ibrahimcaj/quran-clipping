@@ -219,7 +219,7 @@ async function uploadToInstagram(args: {
     for (let attempt = 0; attempt < INSTAGRAM_STATUS_MAX_ATTEMPTS; attempt++) {
         await sleep(INSTAGRAM_STATUS_POLL_INTERVAL_MS);
         const statusRes = await fetch(
-            `${GRAPH}/${containerId}?fields=status,status_code,error_message&access_token=${args.account.accessToken}`,
+            `${GRAPH}/${containerId}?fields=status,status_code&access_token=${args.account.accessToken}`,
             { cache: "no-store" },
         );
         const { json: statusData, text: statusText } = await readJsonSafe(statusRes);
@@ -236,7 +236,7 @@ async function uploadToInstagram(args: {
         if (statusCode !== lastStatusCode) {
             lastStatusCode = statusCode;
             await args.onStatus?.(
-                `Instagram processing status: ${statusCode}${statusData.error_message ? ` (${statusData.error_message as string})` : ""}`,
+                `Instagram processing status: ${statusCode}`,
             );
         }
 
@@ -251,7 +251,7 @@ async function uploadToInstagram(args: {
         }
         if (statusCode === "ERROR" || statusCode === "EXPIRED") {
             throw new Error(
-                `Instagram processing failed: ${statusData.error_message ?? statusCode}`,
+                `Instagram processing failed: ${statusCode}`,
             );
         }
         if (attempt === INSTAGRAM_STATUS_MAX_ATTEMPTS - 1) {

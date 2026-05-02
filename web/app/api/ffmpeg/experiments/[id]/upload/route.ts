@@ -42,27 +42,33 @@ async function readJsonSafe(res: Response) {
 }
 
 async function fetchChapterName(chapterId: number) {
-    const res = await fetch("https://api.quran.com/api/v4/chapters?language=en", {
-        next: { revalidate: 86400 },
-    });
+    const res = await fetch(
+        "https://api.quran.com/api/v4/chapters?language=en",
+        {
+            next: { revalidate: 86400 },
+        },
+    );
     if (!res.ok) return "";
     const data = (await res.json()) as {
         chapters?: { id: number; name_simple: string }[];
     };
     return (
-        data.chapters?.find((chapter) => chapter.id === chapterId)?.name_simple ??
-        ""
+        data.chapters?.find((chapter) => chapter.id === chapterId)
+            ?.name_simple ?? ""
     );
 }
 
-async function refreshYouTubeAccessToken(db: Awaited<ReturnType<typeof getDb>>, account: {
-    _id: ObjectId;
-    tokens?: {
-        access_token?: string;
-        refresh_token?: string;
-        expires_in?: number;
-    };
-}) {
+async function refreshYouTubeAccessToken(
+    db: Awaited<ReturnType<typeof getDb>>,
+    account: {
+        _id: ObjectId;
+        tokens?: {
+            access_token?: string;
+            refresh_token?: string;
+            expires_in?: number;
+        };
+    },
+) {
     const refreshToken = account.tokens?.refresh_token;
     if (!refreshToken) {
         throw new Error("This YouTube account is missing a refresh token.");
@@ -92,10 +98,12 @@ async function refreshYouTubeAccessToken(db: Awaited<ReturnType<typeof getDb>>, 
         token_type: json.token_type as string | undefined,
     };
 
-    await db.collection("accounts").updateOne(
-        { _id: account._id },
-        { $set: { tokens: nextTokens, updatedAt: new Date() } },
-    );
+    await db
+        .collection("accounts")
+        .updateOne(
+            { _id: account._id },
+            { $set: { tokens: nextTokens, updatedAt: new Date() } },
+        );
 
     return nextTokens.access_token;
 }
@@ -170,7 +178,9 @@ async function uploadToInstagram(args: {
     onStatus?: (message: string) => void | Promise<void>;
 }) {
     if (!args.account.igUserId || !args.account.accessToken) {
-        throw new Error("This Instagram account is missing publishing credentials.");
+        throw new Error(
+            "This Instagram account is missing publishing credentials.",
+        );
     }
 
     const createRes = await fetch(`${GRAPH}/${args.account.igUserId}/media`, {
@@ -222,7 +232,8 @@ async function uploadToInstagram(args: {
             `${GRAPH}/${containerId}?fields=status,status_code&access_token=${args.account.accessToken}`,
             { cache: "no-store" },
         );
-        const { json: statusData, text: statusText } = await readJsonSafe(statusRes);
+        const { json: statusData, text: statusText } =
+            await readJsonSafe(statusRes);
         const statusCode = String(
             statusData.status_code ?? statusData.status ?? "UNKNOWN",
         );
@@ -235,9 +246,7 @@ async function uploadToInstagram(args: {
 
         if (statusCode !== lastStatusCode) {
             lastStatusCode = statusCode;
-            await args.onStatus?.(
-                `Instagram processing status: ${statusCode}`,
-            );
+            await args.onStatus?.(`Instagram processing status: ${statusCode}`);
         }
 
         if (statusCode === "UNKNOWN") {
@@ -250,9 +259,7 @@ async function uploadToInstagram(args: {
             break;
         }
         if (statusCode === "ERROR" || statusCode === "EXPIRED") {
-            throw new Error(
-                `Instagram processing failed: ${statusCode}`,
-            );
+            throw new Error(`Instagram processing failed: ${statusCode}`);
         }
         if (attempt === INSTAGRAM_STATUS_MAX_ATTEMPTS - 1) {
             throw new Error(
@@ -261,14 +268,17 @@ async function uploadToInstagram(args: {
         }
     }
 
-    const publishRes = await fetch(`${GRAPH}/${args.account.igUserId}/media_publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            creation_id: containerId,
-            access_token: args.account.accessToken,
-        }),
-    });
+    const publishRes = await fetch(
+        `${GRAPH}/${args.account.igUserId}/media_publish`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                creation_id: containerId,
+                access_token: args.account.accessToken,
+            }),
+        },
+    );
     const published = await publishRes.json();
     if (!publishRes.ok || !published?.id) {
         throw new Error(
@@ -321,19 +331,29 @@ export async function POST(
             );
         };
         const experiment = await collection.findOne({ _id });
-        const resolved = await resolveExperimentOutputState(collection, experiment);
+        const resolved = await resolveExperimentOutputState(
+            collection,
+            experiment,
+        );
 
         if (!resolved.doc) {
-            return NextResponse.json({ error: "Experiment not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Experiment not found" },
+                { status: 404 },
+            );
         }
-        if (!resolved.hasOutputFile || typeof resolved.doc.outputPath !== "string") {
+        if (
+            !resolved.hasOutputFile ||
+            typeof resolved.doc.outputPath !== "string"
+        ) {
             return NextResponse.json(
                 { error: "Generated video is missing or expired." },
                 { status: 400 },
             );
         }
 
-        const accounts = await db.collection("accounts")
+        const accounts = await db
+            .collection("accounts")
             .find({ type: { $in: ["youtube", "instagram"] } })
             .sort({ connectedAt: 1 })
             .toArray();
@@ -345,7 +365,9 @@ export async function POST(
         }
 
         const verseKey =
-            typeof resolved.doc.verseKey === "string" ? resolved.doc.verseKey : "";
+            typeof resolved.doc.verseKey === "string"
+                ? resolved.doc.verseKey
+                : "";
         const reciterName =
             typeof resolved.doc.reciterName === "string"
                 ? resolved.doc.reciterName
@@ -369,7 +391,9 @@ export async function POST(
             surahName,
             reciterName,
         });
-        const title = [verseKey, surahName, reciterName].filter(Boolean).join(" ");
+        const title = [verseKey, surahName, reciterName]
+            .filter(Boolean)
+            .join(" ");
 
         const results: UploadResult[] = [];
         await appendLog(
@@ -384,9 +408,14 @@ export async function POST(
                         db,
                         account: {
                             _id: account._id as ObjectId,
-                            name: (account.name as string | undefined) ?? "YouTube",
+                            name:
+                                (account.name as string | undefined) ??
+                                "YouTube",
                             tokens: account.tokens as
-                                | { access_token?: string; refresh_token?: string }
+                                | {
+                                      access_token?: string;
+                                      refresh_token?: string;
+                                  }
                                 | undefined,
                         },
                         filePath: resolved.doc.outputPath,
@@ -396,7 +425,8 @@ export async function POST(
                     results.push({
                         accountId: account._id.toString(),
                         platform: "youtube",
-                        accountName: (account.name as string | undefined) ?? "YouTube",
+                        accountName:
+                            (account.name as string | undefined) ?? "YouTube",
                         status: "uploaded",
                         uploadedAt,
                         externalId: uploaded.externalId,
@@ -423,7 +453,8 @@ export async function POST(
                 results.push({
                     accountId: account._id.toString(),
                     platform: "instagram",
-                    accountName: (account.name as string | undefined) ?? "Instagram",
+                    accountName:
+                        (account.name as string | undefined) ?? "Instagram",
                     status: "uploaded",
                     uploadedAt,
                     externalId: uploaded.externalId,
@@ -438,7 +469,8 @@ export async function POST(
                 results.push({
                     accountId: account._id.toString(),
                     platform: account.type as "youtube" | "instagram",
-                    accountName: (account.name as string | undefined) ?? account.type,
+                    accountName:
+                        (account.name as string | undefined) ?? account.type,
                     status: "failed",
                     uploadedAt,
                     error: errorMessage,
@@ -471,12 +503,18 @@ export async function POST(
         );
 
         const updated = await collection.findOne({ _id });
-        const nextResolved = await resolveExperimentOutputState(collection, updated);
+        const nextResolved = await resolveExperimentOutputState(
+            collection,
+            updated,
+        );
 
         return NextResponse.json({
             results,
             experiment: nextResolved.doc
-                ? serializeExperiment(nextResolved.doc, nextResolved.hasOutputFile)
+                ? serializeExperiment(
+                      nextResolved.doc,
+                      nextResolved.hasOutputFile,
+                  )
                 : null,
         });
     } catch (error) {

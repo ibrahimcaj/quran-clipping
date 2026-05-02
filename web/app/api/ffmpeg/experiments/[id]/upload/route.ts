@@ -26,8 +26,12 @@ type UploadResult = {
     error?: string;
 };
 
-function getRequestOrigin(req: NextRequest) {
-    return new URL(req.url).origin;
+function getBaseUrl() {
+    const baseUrl = process.env.BASE_URL?.trim();
+    if (!baseUrl) {
+        throw new Error("BASE_URL must be set for clip uploads.");
+    }
+    return baseUrl.replace(/\/+$/, "");
 }
 
 function isPrivateHostname(hostname: string) {
@@ -254,7 +258,7 @@ async function uploadToInstagram(args: {
 }
 
 export async function POST(
-    req: NextRequest,
+    _: NextRequest,
     { params }: { params: Promise<{ id: string }> },
 ) {
     const { id } = await params;
@@ -317,10 +321,10 @@ export async function POST(
         });
         const title = [verseKey, surahName, reciterName].filter(Boolean).join(" ");
 
-        const origin = getRequestOrigin(req);
-        const hostname = new URL(origin).hostname;
+        const baseUrl = getBaseUrl();
+        const hostname = new URL(baseUrl).hostname;
         const canUsePublicFileUrl = !isPrivateHostname(hostname);
-        const fileUrl = `${origin}/api/ffmpeg/experiments/${id}/file`;
+        const fileUrl = `${baseUrl}/api/ffmpeg/experiments/${id}/file`;
 
         const results: UploadResult[] = [];
 

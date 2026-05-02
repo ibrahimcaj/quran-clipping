@@ -708,7 +708,7 @@ function formatAssTimestamp(seconds: number): string {
 function createAssCard(arabic: string, english: string, size: number): string {
     // single middle-center dialogue so the whole block is treated as one unit
     const text = english
-        ? `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}{\\N\\fnArial\\fs11}${escapeAssText(english)}`
+        ? `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}\\N{\\fnArial\\fs11}${escapeAssText(english)}`
         : `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}`;
     return [
         "[Script Info]",

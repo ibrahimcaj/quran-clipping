@@ -33,17 +33,21 @@ async function runAutoclipJob(
     signal: AbortSignal,
 ) {
     try {
-        await db.collection("autoclipJobs").updateOne(
-            { _id: job._id },
-            { $set: { status: "processing", startedAt: new Date() } },
-        );
+        await db
+            .collection("autoclipJobs")
+            .updateOne(
+                { _id: job._id },
+                { $set: { status: "processing", startedAt: new Date() } },
+            );
 
         const verse = await (async () => {
             const res = await fetch(
                 `https://api.quran.com/api/v4/verses/random?recitation=7&words=true&translations=131&word_fields=text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1`,
                 { signal },
             );
-            const data = (await res.json()) as { verse?: Record<string, unknown> };
+            const data = (await res.json()) as {
+                verse?: Record<string, unknown>;
+            };
             return data.verse;
         })();
 
@@ -51,7 +55,12 @@ async function runAutoclipJob(
             throw new Error("Failed to fetch verse");
         }
 
-        const videos = await db.collection("videos").find({}).sort({ createdAt: -1 }).limit(1).toArray();
+        const videos = await db
+            .collection("videos")
+            .find({})
+            .sort({ createdAt: -1 })
+            .limit(1)
+            .toArray();
         if (!videos.length) throw new Error("No videos available");
 
         const videoId = (videos[0]._id as ObjectId).toString();
@@ -63,10 +72,17 @@ async function runAutoclipJob(
             verseKey,
             recitationId: "7",
             sourceVideoIds: [videoId],
-            sourceVideoNames: [(videos[0].originalFilename as string) ?? "video"],
+            sourceVideoNames: [
+                (videos[0].originalFilename as string) ?? "video",
+            ],
             status: "queued",
             currentStep: "Queued",
-            logs: [{ message: "Auto-clip job", createdAt: new Date().toISOString() }],
+            logs: [
+                {
+                    message: "Auto-clip job",
+                    createdAt: new Date().toISOString(),
+                },
+            ],
             createdAt: new Date(),
             updatedAt: new Date(),
         };
@@ -91,24 +107,30 @@ async function runAutoclipJob(
             });
         });
 
-        const uploadRes = await fetch(`http://localhost:3000/api/ffmpeg/experiments/${experimentId}/upload`, {
-            method: "POST",
-            signal,
-        });
+        const uploadRes = await fetch(
+            `http://localhost:3000/api/ffmpeg/experiments/${experimentId}/upload`,
+            {
+                method: "POST",
+                signal,
+            },
+        );
 
         if (!uploadRes.ok) throw new Error("Upload failed");
 
-        await db.collection("autoclipJobs").updateOne(
-            { _id: job._id },
-            { $set: { status: "completed", completedAt: new Date() } },
-        );
+        await db
+            .collection("autoclipJobs")
+            .updateOne(
+                { _id: job._id },
+                { $set: { status: "completed", completedAt: new Date() } },
+            );
     } catch (error) {
         await db.collection("autoclipJobs").updateOne(
             { _id: job._id },
             {
                 $set: {
                     status: "failed",
-                    error: error instanceof Error ? error.message : String(error),
+                    error:
+                        error instanceof Error ? error.message : String(error),
                     failedAt: new Date(),
                 },
             },
@@ -140,7 +162,10 @@ async function tick() {
 
         const queuedJobs = await db
             .collection("autoclipJobs")
-            .find({ status: "queued", _id: { $nin: runningIds.map((id) => new ObjectId(id)) } })
+            .find({
+                status: "queued",
+                _id: { $nin: runningIds.map((id) => new ObjectId(id)) },
+            })
             .limit(slots)
             .toArray();
 
@@ -148,7 +173,11 @@ async function tick() {
             const ac = new AbortController();
             const jobId = job._id!.toString();
             jobs.set(jobId, ac);
-            runAutoclipJob(db, job as { _id: ObjectId; status: string }, ac.signal)
+            runAutoclipJob(
+                db,
+                job as { _id: ObjectId; status: string },
+                ac.signal,
+            )
                 .catch(() => {})
                 .finally(() => jobs.delete(jobId));
         }
@@ -163,5 +192,7 @@ export function startWorker() {
 
     setInterval(tick, 3000);
     tick();
-    console.log("[worker] Queue worker started (concurrency=3, autoclip=hourly)");
+    console.log(
+        "[worker] Queue worker started (concurrency=3, autoclip=hourly)",
+    );
 }

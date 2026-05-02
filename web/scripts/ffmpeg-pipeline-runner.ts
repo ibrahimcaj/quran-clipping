@@ -4,7 +4,11 @@ import { createRequire } from "module";
 import { spawn } from "child_process";
 import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
-import { PREPARED_VIDEOS_DIR, safeSlug } from "../lib/storage";
+import {
+    EXPERIMENTS_DIR,
+    PREPARED_VIDEOS_DIR,
+    safeSlug,
+} from "../lib/storage";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
@@ -156,14 +160,8 @@ function getClientId() {
 }
 
 function createExperimentOutputPaths(experimentId: string) {
-    const experimentsDir = path.join(
-        process.cwd(),
-        "..",
-        "storage",
-        "experiments",
-    );
-    ensureDir(experimentsDir);
-    const workDir = path.join(experimentsDir, experimentId);
+    ensureDir(EXPERIMENTS_DIR);
+    const workDir = path.join(EXPERIMENTS_DIR, experimentId);
     ensureDir(workDir);
     const preparedDir = path.join(workDir, "prepared");
     ensureDir(preparedDir);
@@ -184,6 +182,14 @@ function createExperimentOutputPaths(experimentId: string) {
 function getPreparedVideoPath(videoId: string) {
     ensureDir(PREPARED_VIDEOS_DIR);
     return path.join(PREPARED_VIDEOS_DIR, `${videoId}.mp4`);
+}
+
+function createProbeAudioPath() {
+    ensureDir(EXPERIMENTS_DIR);
+    return path.join(
+        EXPERIMENTS_DIR,
+        `.probe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`,
+    );
 }
 
 async function inspectVideo(inputPath: string) {
@@ -338,6 +344,7 @@ async function downloadFile(url: string, filePath: string) {
         throw new Error(`Failed to download file: ${res.status}`);
     }
     const arrayBuffer = await res.arrayBuffer();
+    ensureDir(path.dirname(filePath));
     fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
 }
 
@@ -392,13 +399,7 @@ async function selectRenderableVerse(
         const verse = await getRandomVerse(recitationId);
         await log(`Candidate verse ${attempt}/${attempts}: ${verse.verse_key}`);
 
-        const tempAudioPath = path.join(
-            process.cwd(),
-            "..",
-            "storage",
-            "experiments",
-            `.probe-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`,
-        );
+        const tempAudioPath = createProbeAudioPath();
 
         try {
             await downloadFile(
@@ -967,13 +968,7 @@ async function main() {
         if (existingVerseKey && existingRecitationId) {
             await setStep("Fetch selected verse");
             verse = await getVerseByKey(existingVerseKey, recitationId);
-            const tempAudioPath = path.join(
-                process.cwd(),
-                "..",
-                "storage",
-                "experiments",
-                `.probe-${Date.now()}.mp3`,
-            );
+            const tempAudioPath = createProbeAudioPath();
             try {
                 await downloadFile(
                     verseAudioUrl(existingVerseKey, recitationId),

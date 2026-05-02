@@ -14,6 +14,8 @@ import {
 } from "@/lib/upload-caption";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
+const INSTAGRAM_STATUS_POLL_INTERVAL_MS = 5000;
+const INSTAGRAM_STATUS_MAX_ATTEMPTS = 60;
 
 type UploadResult = {
     accountId: string;
@@ -185,6 +187,7 @@ async function uploadToInstagram(args: {
     };
     fileUrl: string;
     caption: string;
+    onStatus?: (message: string) => void | Promise<void>;
 }) {
     if (!args.account.igUserId || !args.account.accessToken) {
         throw new Error("This Instagram account is missing publishing credentials.");
@@ -207,15 +210,28 @@ async function uploadToInstagram(args: {
             `Instagram container failed: ${created?.error?.message ?? JSON.stringify(created)}`,
         );
     }
+    await args.onStatus?.(
+        `Instagram container created: ${created.id as string}`,
+    );
 
-    for (let attempt = 0; attempt < 12; attempt++) {
-        await sleep(5000);
+    let lastStatusCode: string | null = null;
+    for (let attempt = 0; attempt < INSTAGRAM_STATUS_MAX_ATTEMPTS; attempt++) {
+        await sleep(INSTAGRAM_STATUS_POLL_INTERVAL_MS);
         const statusRes = await fetch(
             `${GRAPH}/${created.id}?fields=status,status_code,error_message&access_token=${args.account.accessToken}`,
             { cache: "no-store" },
         );
         const statusData = await statusRes.json();
-        const statusCode = statusData.status_code ?? statusData.status;
+        const statusCode = String(
+            statusData.status_code ?? statusData.status ?? "UNKNOWN",
+        );
+
+        if (statusCode !== lastStatusCode) {
+            lastStatusCode = statusCode;
+            await args.onStatus?.(
+                `Instagram processing status: ${statusCode}${statusData.error_message ? ` (${statusData.error_message as string})` : ""}`,
+            );
+        }
 
         if (statusCode === "FINISHED") {
             break;
@@ -225,8 +241,10 @@ async function uploadToInstagram(args: {
                 `Instagram processing failed: ${statusData.error_message ?? statusCode}`,
             );
         }
-        if (attempt === 11) {
-            throw new Error("Instagram processing did not finish in time.");
+        if (attempt === INSTAGRAM_STATUS_MAX_ATTEMPTS - 1) {
+            throw new Error(
+                `Instagram processing did not finish in time after ${Math.round((INSTAGRAM_STATUS_POLL_INTERVAL_MS * INSTAGRAM_STATUS_MAX_ATTEMPTS) / 1000)}s.`,
+            );
         }
     }
 
@@ -244,6 +262,9 @@ async function uploadToInstagram(args: {
             `Instagram publish failed: ${published?.error?.message ?? JSON.stringify(published)}`,
         );
     }
+    await args.onStatus?.(
+        `Instagram publish complete: ${published.id as string}`,
+    );
 
     const mediaRes = await fetch(
         `${GRAPH}/${published.id}?fields=permalink&access_token=${args.account.accessToken}`,
@@ -333,6 +354,9 @@ export async function POST(
                 createdAt: new Date().toISOString(),
             },
         ];
+        const pushLog = (message: string, createdAt = new Date().toISOString()) => {
+            logEntries.push({ message, createdAt });
+        };
 
         for (const account of accounts) {
             const uploadedAt = new Date().toISOString();
@@ -380,6 +404,10 @@ export async function POST(
                     },
                     fileUrl,
                     caption,
+                    onStatus: (message) =>
+                        pushLog(
+                            `${(account.name as string | undefined) ?? "Instagram"}: ${message}`,
+                        ),
                 });
                 results.push({
                     accountId: account._id.toString(),

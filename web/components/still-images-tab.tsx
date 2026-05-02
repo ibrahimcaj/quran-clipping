@@ -123,8 +123,8 @@ export function StillImagesTab() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start">
-                <div className="flex max-w-2xl flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 w-full flex-col gap-4">
+                    <div className="flex w-full min-w-0 flex-col gap-1.5">
                         <Label>Video</Label>
                         <SearchableSelect
                             items={videos.map(v => ({ value: v._id, label: v.name || v.originalFilename, image: `/api/videos/${v._id}/frame` }))}
@@ -133,9 +133,10 @@ export function StillImagesTab() {
                             placeholder="Select video"
                             searchPlaceholder="Search videos…"
                             emptyLabel="No videos found."
+                            className="w-full"
                         />
                     </div>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex w-full min-w-0 flex-col gap-1.5">
                         <Label>LUT</Label>
                         <SearchableSelect
                             items={[{ value: "none", label: "None" }, ...luts.map(l => ({ value: l._id, label: l.name || l.originalFilename }))]}
@@ -144,10 +145,11 @@ export function StillImagesTab() {
                             placeholder="Select LUT"
                             searchPlaceholder="Search LUTs…"
                             emptyLabel="No LUTs found."
+                            className="w-full"
                         />
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="flex flex-col gap-1.5">
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Overlay</Label>
                             <SearchableSelect
                                 items={[
@@ -162,9 +164,10 @@ export function StillImagesTab() {
                                 placeholder="Select overlay"
                                 searchPlaceholder="Search overlays…"
                                 emptyLabel="No overlays found."
+                                className="w-full"
                             />
                         </div>
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Overlay blend</Label>
                             <SearchableSelect
                                 items={OVERLAY_BLEND_MODES.map(mode => ({
@@ -179,15 +182,16 @@ export function StillImagesTab() {
                                 searchPlaceholder="Search blend modes…"
                                 emptyLabel="No blend modes found."
                                 disabled={overlayId === "none"}
+                                className="w-full"
                             />
                         </div>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
-                        <div className="flex flex-col gap-1.5">
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Title</Label>
                             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Big text…" />
                         </div>
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Font size</Label>
                             <Input
                                 type="number"
@@ -199,12 +203,12 @@ export function StillImagesTab() {
                             />
                         </div>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
-                        <div className="flex flex-col gap-1.5">
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Subtitle</Label>
                             <Input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Small text…" />
                         </div>
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Font size</Label>
                             <Input
                                 type="number"
@@ -216,8 +220,8 @@ export function StillImagesTab() {
                             />
                         </div>
                     </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <div className="flex flex-col gap-2">
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-3">
+                        <div className="flex w-full min-w-0 flex-col gap-2">
                             <Label>Exposure</Label>
                             <span className="text-xs tabular-nums text-muted-foreground">
                                 {exposure >= 0 ? "+" : ""}
@@ -231,7 +235,7 @@ export function StillImagesTab() {
                                 onValueChange={v => setExposure(Array.isArray(v) ? (v[0] ?? 0) : v)}
                             />
                         </div>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex w-full min-w-0 flex-col gap-2">
                             <Label>Saturation</Label>
                             <span className="text-xs tabular-nums text-muted-foreground">
                                 {saturation.toFixed(2)}x
@@ -244,7 +248,7 @@ export function StillImagesTab() {
                                 onValueChange={v => setSaturation(Array.isArray(v) ? (v[0] ?? 1) : v)}
                             />
                         </div>
-                        <div className="flex flex-col gap-2">
+                        <div className="flex w-full min-w-0 flex-col gap-2">
                             <Label>Vignette</Label>
                             <span className="text-xs tabular-nums text-muted-foreground">
                                 {vignette.toFixed(2)}
@@ -258,7 +262,7 @@ export function StillImagesTab() {
                             />
                         </div>
                     </div>
-                    <Button onClick={generate} disabled={loading || !videoId}>
+                    <Button className="w-full" onClick={generate} disabled={loading || !videoId}>
                         {loading ? <><Loader2 className="mr-2 size-4 animate-spin" />Generating…</> : "Generate"}
                     </Button>
                 </div>

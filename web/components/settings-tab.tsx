@@ -66,7 +66,7 @@ function ReciterMultiSelect({
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger
                 render={
-                    <button className="flex h-9 min-w-[280px] items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors hover:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-ring">
+                    <button className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors hover:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-ring">
                         <span className="truncate text-left">
                             {value.length === 0
                                 ? "Select reciters"
@@ -81,7 +81,7 @@ function ReciterMultiSelect({
                     </button>
                 }
             />
-            <PopoverContent className="w-[320px] p-0">
+            <PopoverContent className="w-[min(320px,var(--radix-popover-trigger-width))] p-0">
                 <Command>
                     <CommandInput placeholder="Search reciters…" />
                     <CommandList>
@@ -284,19 +284,19 @@ export function SettingsTab() {
                     lead, and default overlay behavior.
                 </p>
             </div>
-            <div className="overflow-x-auto">
+            <div className="w-full min-w-0">
                 {loading ? (
-                    <Table style={{ minWidth: 860 }}>
+                    <Table className="w-full table-fixed">
                         <TableBody>
                             {Array.from({ length: 9 }).map((_, index) => (
                                 <TableRow key={index} className="border-b">
-                                    <TableCell className="w-[42%] align-top">
+                                    <TableCell className="w-[42%] whitespace-normal align-top md:w-[42%]">
                                         <div className="flex flex-col gap-2">
                                             <Skeleton className="h-4 w-32" />
                                             <Skeleton className="h-4 w-60" />
                                         </div>
                                     </TableCell>
-                                    <TableCell className="align-middle">
+                                    <TableCell className="whitespace-normal align-middle">
                                         <div className="flex flex-col gap-2">
                                             <Skeleton className="h-4 w-16" />
                                             <Skeleton className="h-9 w-full" />
@@ -307,10 +307,10 @@ export function SettingsTab() {
                         </TableBody>
                     </Table>
                 ) : (
-                <Table style={{ minWidth: 860 }}>
+                <Table className="w-full table-fixed">
                     <TableBody>
                         <TableRow className="border-b">
-                            <TableCell className="w-[42%] align-top">
+                            <TableCell className="w-[42%] whitespace-normal align-top md:w-[42%]">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Enabled reciters
@@ -321,8 +321,8 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-middle">
-                                <div className="flex flex-col gap-2">
+                            <TableCell className="whitespace-normal align-middle">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
                                     <ReciterMultiSelect
                                         recitations={recitations}
                                         value={[...enabledIds]}
@@ -341,7 +341,7 @@ export function SettingsTab() {
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Vignette
@@ -351,8 +351,8 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
-                                <div className="flex flex-col gap-2">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
                                     <span className="text-xs tabular-nums text-muted-foreground">
                                         {vignette.toFixed(2)}
                                     </span>
@@ -373,7 +373,7 @@ export function SettingsTab() {
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Saturation
@@ -383,8 +383,8 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
-                                <div className="flex flex-col gap-2">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
                                     <span className="text-xs tabular-nums text-muted-foreground">
                                         {saturation.toFixed(2)}x
                                     </span>
@@ -405,7 +405,7 @@ export function SettingsTab() {
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Exposure
@@ -415,8 +415,8 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
-                                <div className="flex flex-col gap-2">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
                                     <span className="text-xs tabular-nums text-muted-foreground">
                                         {exposure >= 0 ? "+" : ""}
                                         {exposure.toFixed(1)} EV
@@ -438,7 +438,7 @@ export function SettingsTab() {
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Audio lead
@@ -449,8 +449,8 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
-                                <div className="flex flex-col gap-2">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
                                     <span className="text-xs tabular-nums text-muted-foreground">
                                         {audioLeadSeconds.toFixed(1)}s
                                     </span>
@@ -473,7 +473,7 @@ export function SettingsTab() {
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Random ayah length range
@@ -485,9 +485,9 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex flex-col gap-1.5">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
+                                    <div className="flex w-full min-w-0 flex-col gap-1.5 sm:max-w-28">
                                         <Label
                                             htmlFor="random-ayah-min"
                                             className="text-xs text-muted-foreground"
@@ -513,13 +513,13 @@ export function SettingsTab() {
                                                             : 0,
                                                 });
                                             }}
-                                            className="w-28"
+                                            className="w-full"
                                         />
                                     </div>
-                                    <div className="flex h-9 items-center pt-5 text-muted-foreground">
+                                    <div className="hidden h-9 items-center pb-2 text-muted-foreground sm:flex">
                                         <ArrowRight className="size-4" />
                                     </div>
-                                    <div className="flex flex-col gap-1.5">
+                                    <div className="flex w-full min-w-0 flex-col gap-1.5 sm:max-w-28">
                                         <Label
                                             htmlFor="random-ayah-max"
                                             className="text-xs text-muted-foreground"
@@ -545,17 +545,17 @@ export function SettingsTab() {
                                                             : 30,
                                                 });
                                             }}
-                                            className="w-28"
+                                            className="w-full"
                                         />
                                     </div>
-                                    <span className="pt-5 text-xs text-muted-foreground">
+                                    <span className="text-xs text-muted-foreground sm:pb-2">
                                         seconds
                                     </span>
                                 </div>
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Upload caption template
@@ -565,13 +565,12 @@ export function SettingsTab() {
                                         Available variables:{" "}
                                         <code>{"{{verseKey}}"}</code>,{" "}
                                         <code>{"{{surahName}}"}</code>,{" "}
-                                        <code>{"{{reciterName}}"}</code>,{" "}
-                                        <code>{"{{hashtags}}"}</code>.
+                                        <code>{"{{reciterName}}"}</code>.
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
-                                <div className="flex flex-col gap-2">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
                                     <Textarea
                                         value={uploadCaptionTemplate}
                                         onChange={(e) => {
@@ -581,13 +580,13 @@ export function SettingsTab() {
                                                 uploadCaptionTemplate: next,
                                             });
                                         }}
-                                        className="min-h-28"
+                                        className="min-h-28 w-full"
                                     />
                                 </div>
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Default overlay
@@ -598,7 +597,7 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-top">
+                            <TableCell className="whitespace-normal align-top">
                                 <SearchableSelect
                                     items={[
                                         { value: "none", label: "None" },
@@ -624,7 +623,7 @@ export function SettingsTab() {
                             </TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="align-middle">
+                            <TableCell className="whitespace-normal align-middle">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
                                         Default overlay blend
@@ -635,7 +634,7 @@ export function SettingsTab() {
                                     </p>
                                 </div>
                             </TableCell>
-                            <TableCell className="align-middle">
+                            <TableCell className="whitespace-normal align-middle">
                                 <SearchableSelect
                                     items={OVERLAY_BLEND_MODES.map((mode) => ({
                                         value: mode,

@@ -9,7 +9,6 @@ import {
     serializeExperiment,
 } from "@/lib/ffmpeg-experiment-output";
 import {
-    DEFAULT_QURAN_HASHTAGS,
     DEFAULT_UPLOAD_CAPTION_TEMPLATE,
     formatUploadCaption,
 } from "@/lib/upload-caption";
@@ -315,7 +314,6 @@ export async function POST(
             verseKey,
             surahName,
             reciterName,
-            hashtags: DEFAULT_QURAN_HASHTAGS,
         });
         const title = [verseKey, surahName, reciterName].filter(Boolean).join(" ");
 

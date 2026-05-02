@@ -327,6 +327,12 @@ export async function POST(
         const fileUrl = `${baseUrl}/api/ffmpeg/experiments/${id}/file`;
 
         const results: UploadResult[] = [];
+        const logEntries: { message: string; createdAt: string }[] = [
+            {
+                message: `Upload started for ${accounts.length} account${accounts.length === 1 ? "" : "s"}`,
+                createdAt: new Date().toISOString(),
+            },
+        ];
 
         for (const account of accounts) {
             const uploadedAt = new Date().toISOString();
@@ -354,6 +360,10 @@ export async function POST(
                         externalId: uploaded.externalId,
                         url: uploaded.url,
                     });
+                    logEntries.push({
+                        message: `Uploaded to YouTube: ${(account.name as string | undefined) ?? "YouTube"}`,
+                        createdAt: uploadedAt,
+                    });
                     continue;
                 }
 
@@ -380,26 +390,49 @@ export async function POST(
                     externalId: uploaded.externalId,
                     url: uploaded.url,
                 });
+                logEntries.push({
+                    message: `Uploaded to Instagram: ${(account.name as string | undefined) ?? "Instagram"}`,
+                    createdAt: uploadedAt,
+                });
             } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
                 results.push({
                     accountId: account._id.toString(),
                     platform: account.type as "youtube" | "instagram",
                     accountName: (account.name as string | undefined) ?? account.type,
                     status: "failed",
                     uploadedAt,
-                    error: error instanceof Error ? error.message : String(error),
+                    error: errorMessage,
+                });
+                logEntries.push({
+                    message: `Upload failed for ${(account.name as string | undefined) ?? account.type}: ${errorMessage}`,
+                    createdAt: uploadedAt,
                 });
             }
         }
 
+        const uploadedCount = results.filter(
+            (result) => result.status === "uploaded",
+        ).length;
+        const failedCount = results.length - uploadedCount;
+        logEntries.push({
+            message: `Upload finished: ${uploadedCount} uploaded, ${failedCount} failed`,
+            createdAt: new Date().toISOString(),
+        });
+
         const existingUploads = Array.isArray(resolved.doc.uploads)
             ? resolved.doc.uploads
+            : [];
+        const existingLogs = Array.isArray(resolved.doc.logs)
+            ? resolved.doc.logs
             : [];
         await collection.updateOne(
             { _id },
             {
                 $set: {
                     uploads: [...existingUploads, ...results],
+                    logs: [...existingLogs, ...logEntries],
                     updatedAt: new Date(),
                 },
             },

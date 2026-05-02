@@ -132,6 +132,10 @@ const TEXT_GLOW_COLOR = "0x0E3A72";
 const TEXT_INNER_GLOW_ALPHA = 0.7;
 const TEXT_INNER_GLOW_SIGMA = 6;
 const VIDEO_PIXELATE_SIZE = 720;
+const TEXT_PAIR_LEAD_SECONDS = 0.04;
+const TEXT_PAIR_TAIL_SECONDS = 0.08;
+const TEXT_PAIR_MIN_SECONDS = 0.35;
+const TEXT_PAIR_GAP_SECONDS = 0.02;
 
 const OAUTH_BASE = {
     prelive: "https://prelive-oauth2.quran.foundation",
@@ -1311,15 +1315,65 @@ async function main() {
             for (let i = 0; i < textWords.length; i += 2) {
                 const chunk = textWords.slice(i, i + 2);
                 const pairIndex = Math.floor(i / 2);
+                const timedChunk = chunk.filter(
+                    (word) =>
+                        typeof word.timestamp_from === "number" &&
+                        typeof word.timestamp_to === "number",
+                );
+                const firstTimedWord = timedChunk[0];
+                const lastTimedWord = timedChunk[timedChunk.length - 1];
+                const fallbackStart = pairIndex * slotSeconds;
+                const fallbackEnd = (pairIndex + 1) * slotSeconds;
+                const startS = firstTimedWord
+                    ? Math.max(
+                          firstTimedWord.timestamp_from! / 1000 -
+                              TEXT_PAIR_LEAD_SECONDS,
+                          0,
+                      )
+                    : fallbackStart;
+                let endS = lastTimedWord
+                    ? Math.min(
+                          lastTimedWord.timestamp_to! / 1000 +
+                              TEXT_PAIR_TAIL_SECONDS,
+                          targetSeconds,
+                      )
+                    : fallbackEnd;
+
+                if (endS <= startS) {
+                    endS = Math.min(
+                        startS + TEXT_PAIR_MIN_SECONDS,
+                        targetSeconds,
+                    );
+                }
+
                 pairs.push({
                     arabic: chunk.map((w) => getOverlayWordText(w)).join(" "),
                     english: chunk
                         .map((w) => getOverlayWordTranslation(w))
                         .filter(Boolean)
                         .join(" "),
-                    startS: pairIndex * slotSeconds,
-                    endS: (pairIndex + 1) * slotSeconds,
+                    startS,
+                    endS,
                 });
+            }
+
+            for (let i = 0; i < pairs.length - 1; i += 1) {
+                const nextStart = pairs[i + 1].startS;
+                const maxEnd = Math.max(
+                    pairs[i].startS + TEXT_PAIR_MIN_SECONDS,
+                    nextStart - TEXT_PAIR_GAP_SECONDS,
+                );
+                pairs[i].endS = Math.min(
+                    pairs[i].endS,
+                    maxEnd,
+                    targetSeconds,
+                );
+                if (pairs[i].endS <= pairs[i].startS) {
+                    pairs[i].endS = Math.min(
+                        pairs[i].startS + TEXT_PAIR_MIN_SECONDS,
+                        targetSeconds,
+                    );
+                }
             }
 
             const pngPaths: string[] = [];

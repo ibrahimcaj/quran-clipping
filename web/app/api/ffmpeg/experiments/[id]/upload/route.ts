@@ -1,6 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import * as fs from "fs";
+import os from "os";
+import path from "path";
+import { spawn } from "child_process";
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
@@ -30,6 +33,62 @@ type UploadResult = {
 
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function run(cmd: string, args: string[]) {
+    return new Promise<void>((resolve, reject) => {
+        const proc = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
+        let err = "";
+        proc.stderr.on("data", (chunk: Buffer) => {
+            err += chunk.toString();
+        });
+        proc.on("error", reject);
+        proc.on("close", (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(err.trim() || `${cmd} exited ${code}`));
+        });
+    });
+}
+
+async function prepareInstagramUploadFile(
+    sourcePath: string,
+    onStatus?: (message: string) => void | Promise<void>,
+) {
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "ig-upload-"));
+    const outputPath = path.join(workDir, "instagram.mp4");
+    await onStatus?.("Preparing Instagram-safe upload file");
+    await run("ffmpeg", [
+        "-y",
+        "-i",
+        sourcePath,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        outputPath,
+    ]);
+    return {
+        outputPath,
+        cleanup: () => fs.rmSync(workDir, { recursive: true, force: true }),
+    };
 }
 
 async function readJsonSafe(res: Response) {
@@ -183,122 +242,131 @@ async function uploadToInstagram(args: {
         );
     }
 
-    const createRes = await fetch(`${GRAPH}/${args.account.igUserId}/media`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            media_type: "REELS",
-            upload_type: "resumable",
-            caption: args.caption,
-            share_to_feed: true,
-            access_token: args.account.accessToken,
-        }),
-    });
-    const created = await createRes.json();
-    if (!createRes.ok || !created?.id || !created?.uri) {
-        throw new Error(
-            `Instagram container failed: ${created?.error?.message ?? JSON.stringify(created)}`,
-        );
-    }
-    const containerId = created.id as string;
-    const uploadUri = created.uri as string;
-    const fileSize = fs.statSync(args.filePath).size;
-    const fileBuffer = fs.readFileSync(args.filePath);
-    await args.onStatus?.(`Instagram container created: ${containerId}`);
-    await args.onStatus?.(
-        `Instagram resumable upload started: ${(fileSize / 1024 / 1024).toFixed(1)} MB`,
+    const prepared = await prepareInstagramUploadFile(
+        args.filePath,
+        args.onStatus,
     );
 
-    const uploadRes = await fetch(uploadUri, {
-        method: "POST",
-        headers: {
-            Authorization: `OAuth ${args.account.accessToken}`,
-            "Content-Type": "video/mp4",
-            offset: "0",
-            file_size: fileSize.toString(),
-        },
-        body: fileBuffer,
-    });
-    if (!uploadRes.ok) {
-        const uploadText = await uploadRes.text();
-        throw new Error(`Instagram video upload failed: ${uploadText}`);
-    }
-    await args.onStatus?.("Instagram video bytes uploaded");
-
-    let lastStatusCode: string | null = null;
-    for (let attempt = 0; attempt < INSTAGRAM_STATUS_MAX_ATTEMPTS; attempt++) {
-        await sleep(INSTAGRAM_STATUS_POLL_INTERVAL_MS);
-        const statusRes = await fetch(
-            `${GRAPH}/${containerId}?fields=status,status_code&access_token=${args.account.accessToken}`,
-            { cache: "no-store" },
-        );
-        const { json: statusData, text: statusText } =
-            await readJsonSafe(statusRes);
-        const statusCode = String(
-            statusData.status_code ?? statusData.status ?? "UNKNOWN",
-        );
-
-        if (!statusRes.ok) {
-            await args.onStatus?.(
-                `Instagram status HTTP ${statusRes.status}: ${statusText || "empty response"}`,
-            );
-        }
-
-        if (statusCode !== lastStatusCode) {
-            lastStatusCode = statusCode;
-            await args.onStatus?.(`Instagram processing status: ${statusCode}`);
-        }
-
-        if (statusCode === "UNKNOWN") {
-            await args.onStatus?.(
-                `Instagram status payload: ${statusText || "empty response"}`,
-            );
-        }
-
-        if (statusCode === "FINISHED") {
-            break;
-        }
-        if (statusCode === "ERROR" || statusCode === "EXPIRED") {
-            throw new Error(`Instagram processing failed: ${statusCode}`);
-        }
-        if (attempt === INSTAGRAM_STATUS_MAX_ATTEMPTS - 1) {
-            throw new Error(
-                `Instagram processing did not finish in time after ${Math.round((INSTAGRAM_STATUS_POLL_INTERVAL_MS * INSTAGRAM_STATUS_MAX_ATTEMPTS) / 1000)}s.`,
-            );
-        }
-    }
-
-    const publishRes = await fetch(
-        `${GRAPH}/${args.account.igUserId}/media_publish`,
-        {
+    try {
+        const createRes = await fetch(`${GRAPH}/${args.account.igUserId}/media`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                creation_id: containerId,
+                media_type: "REELS",
+                upload_type: "resumable",
+                caption: args.caption,
+                share_to_feed: true,
                 access_token: args.account.accessToken,
             }),
-        },
-    );
-    const published = await publishRes.json();
-    if (!publishRes.ok || !published?.id) {
-        throw new Error(
-            `Instagram publish failed: ${published?.error?.message ?? JSON.stringify(published)}`,
+        });
+        const created = await createRes.json();
+        if (!createRes.ok || !created?.id || !created?.uri) {
+            throw new Error(
+                `Instagram container failed: ${created?.error?.message ?? JSON.stringify(created)}`,
+            );
+        }
+        const containerId = created.id as string;
+        const uploadUri = created.uri as string;
+        const fileSize = fs.statSync(prepared.outputPath).size;
+        const fileBuffer = fs.readFileSync(prepared.outputPath);
+        await args.onStatus?.(`Instagram container created: ${containerId}`);
+        await args.onStatus?.(
+            `Instagram resumable upload started: ${(fileSize / 1024 / 1024).toFixed(1)} MB`,
         );
+
+        const uploadRes = await fetch(uploadUri, {
+            method: "POST",
+            headers: {
+                Authorization: `OAuth ${args.account.accessToken}`,
+                "Content-Type": "video/mp4",
+                offset: "0",
+                file_size: fileSize.toString(),
+            },
+            body: fileBuffer,
+        });
+        if (!uploadRes.ok) {
+            const uploadText = await uploadRes.text();
+            throw new Error(`Instagram video upload failed: ${uploadText}`);
+        }
+        await args.onStatus?.("Instagram video bytes uploaded");
+
+        let lastStatusCode: string | null = null;
+        for (let attempt = 0; attempt < INSTAGRAM_STATUS_MAX_ATTEMPTS; attempt++) {
+            await sleep(INSTAGRAM_STATUS_POLL_INTERVAL_MS);
+            const statusRes = await fetch(
+                `${GRAPH}/${containerId}?fields=status,status_code&access_token=${args.account.accessToken}`,
+                { cache: "no-store" },
+            );
+            const { json: statusData, text: statusText } =
+                await readJsonSafe(statusRes);
+            const statusCode = String(
+                statusData.status_code ?? statusData.status ?? "UNKNOWN",
+            );
+
+            if (!statusRes.ok) {
+                await args.onStatus?.(
+                    `Instagram status HTTP ${statusRes.status}: ${statusText || "empty response"}`,
+                );
+            }
+
+            if (statusCode !== lastStatusCode) {
+                lastStatusCode = statusCode;
+                await args.onStatus?.(`Instagram processing status: ${statusCode}`);
+            }
+
+            if (statusCode === "UNKNOWN") {
+                await args.onStatus?.(
+                    `Instagram status payload: ${statusText || "empty response"}`,
+                );
+            }
+
+            if (statusCode === "FINISHED") {
+                break;
+            }
+            if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+                throw new Error(`Instagram processing failed: ${statusCode}`);
+            }
+            if (attempt === INSTAGRAM_STATUS_MAX_ATTEMPTS - 1) {
+                throw new Error(
+                    `Instagram processing did not finish in time after ${Math.round((INSTAGRAM_STATUS_POLL_INTERVAL_MS * INSTAGRAM_STATUS_MAX_ATTEMPTS) / 1000)}s.`,
+                );
+            }
+        }
+
+        const publishRes = await fetch(
+            `${GRAPH}/${args.account.igUserId}/media_publish`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    creation_id: containerId,
+                    access_token: args.account.accessToken,
+                }),
+            },
+        );
+        const published = await publishRes.json();
+        if (!publishRes.ok || !published?.id) {
+            throw new Error(
+                `Instagram publish failed: ${published?.error?.message ?? JSON.stringify(published)}`,
+            );
+        }
+        await args.onStatus?.(
+            `Instagram publish complete: ${published.id as string}`,
+        );
+
+        const mediaRes = await fetch(
+            `${GRAPH}/${published.id}?fields=permalink&access_token=${args.account.accessToken}`,
+            { cache: "no-store" },
+        );
+        const media = await mediaRes.json();
+
+        return {
+            externalId: published.id as string,
+            url: (media?.permalink as string | undefined) ?? undefined,
+        };
+    } finally {
+        prepared.cleanup();
     }
-    await args.onStatus?.(
-        `Instagram publish complete: ${published.id as string}`,
-    );
-
-    const mediaRes = await fetch(
-        `${GRAPH}/${published.id}?fields=permalink&access_token=${args.account.accessToken}`,
-        { cache: "no-store" },
-    );
-    const media = await mediaRes.json();
-
-    return {
-        externalId: published.id as string,
-        url: (media?.permalink as string | undefined) ?? undefined,
-    };
 }
 
 export async function POST(

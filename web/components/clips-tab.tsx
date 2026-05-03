@@ -988,7 +988,8 @@ export function ClipsTab() {
                 );
             } else {
                 throw new Error(
-                    data.results?.[0]?.error ?? "Upload failed for all accounts",
+                    data.results?.[0]?.error ??
+                        "Upload failed for all accounts",
                 );
             }
         } catch (e) {
@@ -1122,209 +1123,214 @@ export function ClipsTab() {
                         </div>
                     </div>
                 ) : (
-                <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex w-full rounded-md border border-input overflow-hidden bg-background">
-                            <button
-                                type="button"
-                                onClick={() => setFinderMode("random")}
-                                className={cn(
-                                    "h-9 flex-1 px-3 text-sm",
-                                    finderMode === "random"
-                                        ? "bg-accent text-foreground"
-                                        : "bg-background text-muted-foreground",
-                                )}
-                            >
-                                Random
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setFinderMode("specific")}
-                                className={cn(
-                                    "h-9 flex-1 border-l px-3 text-sm",
-                                    finderMode === "specific"
-                                        ? "bg-accent text-foreground"
-                                        : "bg-background text-muted-foreground",
-                                )}
-                            >
-                                Specific ayah
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setFinderMode("saved")}
-                                className={cn(
-                                    "h-9 flex-1 border-l px-3 text-sm",
-                                    finderMode === "saved"
-                                        ? "bg-accent text-foreground"
-                                        : "bg-background text-muted-foreground",
-                                )}
-                            >
-                                Saved
-                            </button>
-                        </div>
-                        <div className="flex w-full flex-row items-end gap-3">
-                            {finderMode === "saved" ? (
-                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                        Saved ayah
-                                    </Label>
-                                    <SearchableSelect
-                                        items={savedAyahOptions}
-                                        value={selectedSavedAyahId}
-                                        onChange={(next) => {
-                                            setSelectedSavedAyahId(next);
-                                            void fetchSavedVerse(next);
-                                        }}
-                                        placeholder="Choose a saved ayah"
-                                        searchPlaceholder="Search saved ayaat…"
-                                        emptyLabel="No saved ayaat yet."
-                                        className="w-full min-w-0"
-                                        disabled={savedAyaat.length === 0}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                        Reciter
-                                    </Label>
-                                    <SearchableSelect
-                                        items={experimentReciterOptions}
-                                        value={experimentReciterMode}
-                                        onChange={setExperimentReciterMode}
-                                        placeholder="Select reciter"
-                                        searchPlaceholder="Search reciters…"
-                                        emptyLabel="No reciters found."
-                                        className="w-full min-w-0"
-                                    />
-                                </div>
-                            )}
-                            {finderMode === "specific" && (
-                                <>
+                    <div className="flex flex-col gap-5">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex w-full rounded-md border border-input overflow-hidden bg-background">
+                                <button
+                                    type="button"
+                                    onClick={() => setFinderMode("random")}
+                                    className={cn(
+                                        "h-9 flex-1 px-3 text-sm",
+                                        finderMode === "random"
+                                            ? "bg-accent text-foreground"
+                                            : "bg-background text-muted-foreground",
+                                    )}
+                                >
+                                    Random
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFinderMode("specific")}
+                                    className={cn(
+                                        "h-9 flex-1 border-l px-3 text-sm",
+                                        finderMode === "specific"
+                                            ? "bg-accent text-foreground"
+                                            : "bg-background text-muted-foreground",
+                                    )}
+                                >
+                                    Specific ayah
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFinderMode("saved")}
+                                    className={cn(
+                                        "h-9 flex-1 border-l px-3 text-sm",
+                                        finderMode === "saved"
+                                            ? "bg-accent text-foreground"
+                                            : "bg-background text-muted-foreground",
+                                    )}
+                                >
+                                    Saved
+                                </button>
+                            </div>
+                            <div className="flex w-full flex-row items-end gap-3">
+                                {finderMode === "saved" ? (
                                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                                         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Surah
+                                            Saved ayah
                                         </Label>
                                         <SearchableSelect
-                                            items={chapterOptions}
-                                            value={chapter}
-                                            onChange={(id) => {
-                                                setChapter(id);
-                                                const max =
-                                                    AYAHS_PER_SURAH[Number(id)];
-                                                if (max && Number(ayah) > max)
-                                                    setAyah(String(max));
+                                            items={savedAyahOptions}
+                                            value={selectedSavedAyahId}
+                                            onChange={(next) => {
+                                                setSelectedSavedAyahId(next);
+                                                void fetchSavedVerse(next);
                                             }}
-                                            placeholder="Select surah"
-                                            searchPlaceholder="Search surahs…"
-                                            emptyLabel="No surahs found."
+                                            placeholder="Choose a saved ayah"
+                                            searchPlaceholder="Search saved ayaat…"
+                                            emptyLabel="No saved ayaat yet."
                                             className="w-full min-w-0"
+                                            disabled={savedAyaat.length === 0}
                                         />
                                     </div>
-                                    <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                                ) : (
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                                         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Ayah
+                                            Reciter
                                         </Label>
                                         <SearchableSelect
-                                            items={ayahOptions}
-                                            value={ayah}
-                                            onChange={setAyah}
-                                            placeholder="Ayah"
-                                            searchPlaceholder="Search…"
-                                            emptyLabel="No ayah found."
+                                            items={experimentReciterOptions}
+                                            value={experimentReciterMode}
+                                            onChange={setExperimentReciterMode}
+                                            placeholder="Select reciter"
+                                            searchPlaceholder="Search reciters…"
+                                            emptyLabel="No reciters found."
                                             className="w-full min-w-0"
                                         />
                                     </div>
-                                </>
-                            )}
-                            {finderMode !== "saved" && (
-                                <div className="flex shrink-0 items-end">
-                                    <Button
-                                        onClick={
-                                            finderMode === "random"
-                                                ? fetchRandom
-                                                : undefined
-                                        }
-                                        size={"lg"}
-                                        type={
-                                            finderMode === "random"
-                                                ? "button"
-                                                : "submit"
-                                        }
-                                        form={
-                                            finderMode === "specific"
-                                                ? "specific-ayah-form"
-                                                : undefined
-                                        }
-                                        disabled={finderLoading}
-                                        className="w-full"
-                                        title={
-                                            finderLoading
-                                                ? "Finding ayah"
-                                                : finderMode === "random"
-                                                  ? "Find random ayah"
-                                                  : "Find ayah"
-                                        }
-                                        aria-label={
-                                            finderLoading
-                                                ? "Finding ayah"
-                                                : finderMode === "random"
-                                                  ? "Find random ayah"
-                                                  : "Find ayah"
-                                        }
-                                    >
-                                        <Search className="size-4" />
-                                        <span>Find Ayah</span>
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <form
-                        id="specific-ayah-form"
-                        onSubmit={fetchSpecificVerse}
-                        className="hidden"
-                    />
-
-                    {finderLoading && (
-                        <div className="flex flex-col gap-4 border-t pt-5">
-                            <div className="rounded-lg border bg-card p-4 flex flex-col gap-3">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex items-center gap-2">
-                                        <Skeleton className="h-4 w-16" />
-                                        <Skeleton className="h-4 w-36" />
+                                )}
+                                {finderMode === "specific" && (
+                                    <>
+                                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Surah
+                                            </Label>
+                                            <SearchableSelect
+                                                items={chapterOptions}
+                                                value={chapter}
+                                                onChange={(id) => {
+                                                    setChapter(id);
+                                                    const max =
+                                                        AYAHS_PER_SURAH[
+                                                            Number(id)
+                                                        ];
+                                                    if (
+                                                        max &&
+                                                        Number(ayah) > max
+                                                    )
+                                                        setAyah(String(max));
+                                                }}
+                                                placeholder="Select surah"
+                                                searchPlaceholder="Search surahs…"
+                                                emptyLabel="No surahs found."
+                                                className="w-full min-w-0"
+                                            />
+                                        </div>
+                                        <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Ayah
+                                            </Label>
+                                            <SearchableSelect
+                                                items={ayahOptions}
+                                                value={ayah}
+                                                onChange={setAyah}
+                                                placeholder="Ayah"
+                                                searchPlaceholder="Search…"
+                                                emptyLabel="No ayah found."
+                                                className="w-full min-w-0"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                                {finderMode !== "saved" && (
+                                    <div className="flex shrink-0 items-end">
+                                        <Button
+                                            onClick={
+                                                finderMode === "random"
+                                                    ? fetchRandom
+                                                    : undefined
+                                            }
+                                            size={"lg"}
+                                            type={
+                                                finderMode === "random"
+                                                    ? "button"
+                                                    : "submit"
+                                            }
+                                            form={
+                                                finderMode === "specific"
+                                                    ? "specific-ayah-form"
+                                                    : undefined
+                                            }
+                                            disabled={finderLoading}
+                                            className="w-full"
+                                            title={
+                                                finderLoading
+                                                    ? "Finding ayah"
+                                                    : finderMode === "random"
+                                                      ? "Find random ayah"
+                                                      : "Find ayah"
+                                            }
+                                            aria-label={
+                                                finderLoading
+                                                    ? "Finding ayah"
+                                                    : finderMode === "random"
+                                                      ? "Find random ayah"
+                                                      : "Find ayah"
+                                            }
+                                        >
+                                            <Search className="size-4" />
+                                            <span>Find Ayah</span>
+                                        </Button>
                                     </div>
-                                    <Skeleton className="h-9 w-28" />
-                                </div>
-                                <Skeleton className="h-14 w-full" />
-                                <Skeleton className="h-10 w-full" />
+                                )}
                             </div>
                         </div>
-                    )}
-                    {!finderLoading && candidateVerse && (
-                        <div className="flex flex-col gap-4 border-t pt-5">
-                            <VerseCard
-                                verse={candidateVerse}
-                                recitationId={candidateRecitationId}
-                                onUseForRender={setSelectedVerseForRender}
-                                onToggleSaved={(verse) => {
-                                    void toggleSavedAyah(verse);
-                                }}
-                                onGenerate={(verse) => {
-                                    setSelectedVerseForRender(verse);
-                                    void runExperiment("mix_random_verse", {
-                                        verse,
-                                        recitationId: candidateRecitationId,
-                                    });
-                                }}
-                                selectedForRender={
-                                    selectedVerseForRender?.verse_key ===
-                                    candidateVerse.verse_key
-                                }
-                                saved={candidateVerseIsSaved}
-                            />
-                        </div>
-                    )}
-                </div>
+                        <form
+                            id="specific-ayah-form"
+                            onSubmit={fetchSpecificVerse}
+                            className="hidden"
+                        />
+
+                        {finderLoading && (
+                            <div className="flex flex-col gap-4 border-t pt-5">
+                                <div className="rounded-lg border bg-card p-4 flex flex-col gap-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-2">
+                                            <Skeleton className="h-4 w-16" />
+                                            <Skeleton className="h-4 w-36" />
+                                        </div>
+                                        <Skeleton className="h-9 w-28" />
+                                    </div>
+                                    <Skeleton className="h-14 w-full" />
+                                    <Skeleton className="h-10 w-full" />
+                                </div>
+                            </div>
+                        )}
+                        {!finderLoading && candidateVerse && (
+                            <div className="flex flex-col gap-4 border-t pt-5">
+                                <VerseCard
+                                    verse={candidateVerse}
+                                    recitationId={candidateRecitationId}
+                                    onUseForRender={setSelectedVerseForRender}
+                                    onToggleSaved={(verse) => {
+                                        void toggleSavedAyah(verse);
+                                    }}
+                                    onGenerate={(verse) => {
+                                        setSelectedVerseForRender(verse);
+                                        void runExperiment("mix_random_verse", {
+                                            verse,
+                                            recitationId: candidateRecitationId,
+                                        });
+                                    }}
+                                    selectedForRender={
+                                        selectedVerseForRender?.verse_key ===
+                                        candidateVerse.verse_key
+                                    }
+                                    saved={candidateVerseIsSaved}
+                                />
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 <div className="overflow-x-auto w-full">
@@ -1363,194 +1369,200 @@ export function ClipsTab() {
                             </TableBody>
                         </Table>
                     ) : (
-                    <Table style={{ minWidth: 860 }}>
-                        <TableHeader>
-                            <TableRow className="hover:bg-transparent border-b">
-                                <TableHead style={{ width: 260 }}>
-                                    Output
-                                </TableHead>
+                        <Table style={{ minWidth: 860 }}>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent border-b">
+                                    <TableHead style={{ width: 260 }}>
+                                        Output
+                                    </TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Source</TableHead>
-                                <TableHead style={{ width: 132 }}>
-                                    <span className="sr-only">Actions</span>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {experiments.length === 0 && (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={4}
-                                        className="py-8 text-center text-sm text-muted-foreground"
-                                    >
-                                        No experiments run yet.
-                                    </TableCell>
+                                    <TableHead style={{ width: 132 }}>
+                                        <span className="sr-only">Actions</span>
+                                    </TableHead>
                                 </TableRow>
-                            )}
-                            {experiments.map((experiment) => {
-                                const isCancellable =
-                                    experiment.status === "queued" ||
-                                    experiment.status === "running";
-                                const canUpload =
-                                    experiment.status === "completed" &&
-                                    !!experiment.hasOutputFile;
-                                return (
-                                    <TableRow
-                                        key={experiment._id}
-                                        className="border-b cursor-pointer hover:bg-muted/30"
-                                        onClick={() =>
-                                            void openExperiment(experiment)
-                                        }
-                                    >
-                                        <TableCell className="py-3 w-[260px] max-w-[260px]">
-                                            <p
-                                                className="font-medium text-sm leading-tight truncate"
-                                                title={formatVerseLabel(
-                                                    experiment,
-                                                )}
-                                            >
-                                                {formatVerseLabel(experiment)}
-                                            </p>
-                                            <p
-                                                className="text-xs text-muted-foreground truncate"
-                                                title={new Date(
-                                                    experiment.createdAt,
-                                                ).toLocaleString()}
-                                            >
-                                                {new Date(
-                                                    experiment.createdAt,
-                                                ).toLocaleString()}
-                                            </p>
-                                        </TableCell>
+                            </TableHeader>
+                            <TableBody>
+                                {experiments.length === 0 && (
+                                    <TableRow>
                                         <TableCell
-                                            className={cn(
-                                                "py-3 text-sm text-muted-foreground",
-                                                isCancellable &&
-                                                    "animate-pulse",
-                                            )}
+                                            colSpan={4}
+                                            className="py-8 text-center text-sm text-muted-foreground"
                                         >
-                                            {experiment.currentStep}
+                                            No experiments run yet.
                                         </TableCell>
-                                        <TableCell className="py-3 text-sm text-muted-foreground">
-                                            <div className="min-w-0">
-                                                <p>
-                                                    {experiment.reciterName ??
-                                                        "Picking reciter..."}
-                                                </p>
-                                                <p className="truncate text-xs">
-                                                    {experiment.sourceVideoCount >
-                                                    0
-                                                        ? `${experiment.sourceVideoCount} clip${experiment.sourceVideoCount === 1 ? "" : "s"}`
-                                                        : "Picking clips..."}
-                                                </p>
-                                                {experiment.overlayName && (
-                                                    <p className="truncate text-xs text-muted-foreground">
-                                                        Overlay:{" "}
-                                                        {experiment.overlayName}{" "}
-                                                        ·{" "}
-                                                        {experiment.overlayBlendMode ??
-                                                            "normal"}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell
-                                            className="py-3"
-                                            onClick={(e) => e.stopPropagation()}
+                                    </TableRow>
+                                )}
+                                {experiments.map((experiment) => {
+                                    const isCancellable =
+                                        experiment.status === "queued" ||
+                                        experiment.status === "running";
+                                    const canUpload =
+                                        experiment.status === "completed" &&
+                                        !!experiment.hasOutputFile;
+                                    return (
+                                        <TableRow
+                                            key={experiment._id}
+                                            className="border-b cursor-pointer hover:bg-muted/30"
+                                            onClick={() =>
+                                                void openExperiment(experiment)
+                                            }
                                         >
-                                            <div className="flex items-center gap-1">
-                                                {isCancellable && (
-                                                    <Button
-                                                        size="icon"
-                                                        variant="ghost"
-                                                        className="size-8"
-                                                        disabled={
-                                                            rowActionId ===
-                                                            experiment._id
-                                                        }
-                                                        onClick={() =>
-                                                            void cancelExperiment(
-                                                                experiment._id,
-                                                            )
-                                                        }
-                                                        title="Cancel experiment"
-                                                    >
-                                                        <Square className="size-3.5" />
-                                                    </Button>
-                                                )}
-                                                {canUpload && (
-                                                    <Button
-                                                        size="icon"
-                                                        variant="ghost"
-                                                        className="size-8"
-                                                        disabled={
-                                                            rowActionId ===
-                                                            experiment._id
-                                                        }
-                                                        onClick={() =>
-                                                            void uploadExperiment(
-                                                                experiment._id,
-                                                            )
-                                                        }
-                                                        title="Upload clip"
-                                                    >
-                                                        <Upload className="size-3.5" />
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    className="size-8"
-                                                    disabled={
-                                                        rowActionId ===
-                                                        experiment._id
-                                                    }
-                                                    onClick={() =>
-                                                        void restartExperiment(
-                                                            experiment._id,
-                                                        )
-                                                    }
-                                                    title="Restart experiment"
+                                            <TableCell className="py-3 w-[260px] max-w-[260px]">
+                                                <p
+                                                    className="font-medium text-sm leading-tight truncate"
+                                                    title={formatVerseLabel(
+                                                        experiment,
+                                                    )}
                                                 >
-                                                    <RotateCcw className="size-3.5" />
-                                                </Button>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger
-                                                        render={
-                                                            <Button
-                                                                size="icon"
-                                                                variant="ghost"
-                                                                className="size-8"
-                                                            >
-                                                                <MoreHorizontal className="size-3.5" />
-                                                            </Button>
-                                                        }
-                                                    />
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() =>
-                                                                void deleteExperiment(
-                                                                    experiment._id,
-                                                                )
-                                                            }
+                                                    {formatVerseLabel(
+                                                        experiment,
+                                                    )}
+                                                </p>
+                                                <p
+                                                    className="text-xs text-muted-foreground truncate"
+                                                    title={new Date(
+                                                        experiment.createdAt,
+                                                    ).toLocaleString()}
+                                                >
+                                                    {new Date(
+                                                        experiment.createdAt,
+                                                    ).toLocaleString()}
+                                                </p>
+                                            </TableCell>
+                                            <TableCell
+                                                className={cn(
+                                                    "py-3 text-sm text-muted-foreground",
+                                                    isCancellable &&
+                                                        "animate-pulse",
+                                                )}
+                                            >
+                                                {experiment.currentStep}
+                                            </TableCell>
+                                            <TableCell className="py-3 text-sm text-muted-foreground">
+                                                <div className="min-w-0">
+                                                    <p>
+                                                        {experiment.reciterName ??
+                                                            "Picking reciter..."}
+                                                    </p>
+                                                    <p className="truncate text-xs">
+                                                        {experiment.sourceVideoCount >
+                                                        0
+                                                            ? `${experiment.sourceVideoCount} clip${experiment.sourceVideoCount === 1 ? "" : "s"}`
+                                                            : "Picking clips..."}
+                                                    </p>
+                                                    {experiment.overlayName && (
+                                                        <p className="truncate text-xs text-muted-foreground">
+                                                            Overlay:{" "}
+                                                            {
+                                                                experiment.overlayName
+                                                            }{" "}
+                                                            ·{" "}
+                                                            {experiment.overlayBlendMode ??
+                                                                "normal"}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell
+                                                className="py-3"
+                                                onClick={(e) =>
+                                                    e.stopPropagation()
+                                                }
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    {isCancellable && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="size-8"
                                                             disabled={
                                                                 rowActionId ===
                                                                 experiment._id
                                                             }
-                                                            className="gap-2 text-red-500"
+                                                            onClick={() =>
+                                                                void cancelExperiment(
+                                                                    experiment._id,
+                                                                )
+                                                            }
+                                                            title="Cancel experiment"
                                                         >
-                                                            <Trash2 className="size-3.5" />
-                                                            Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+                                                            <Square className="size-3.5" />
+                                                        </Button>
+                                                    )}
+                                                    {canUpload && (
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            className="size-8"
+                                                            disabled={
+                                                                rowActionId ===
+                                                                experiment._id
+                                                            }
+                                                            onClick={() =>
+                                                                void uploadExperiment(
+                                                                    experiment._id,
+                                                                )
+                                                            }
+                                                            title="Upload clip"
+                                                        >
+                                                            <Upload className="size-3.5" />
+                                                        </Button>
+                                                    )}
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="size-8"
+                                                        disabled={
+                                                            rowActionId ===
+                                                            experiment._id
+                                                        }
+                                                        onClick={() =>
+                                                            void restartExperiment(
+                                                                experiment._id,
+                                                            )
+                                                        }
+                                                        title="Restart experiment"
+                                                    >
+                                                        <RotateCcw className="size-3.5" />
+                                                    </Button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger
+                                                            render={
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    className="size-8"
+                                                                >
+                                                                    <MoreHorizontal className="size-3.5" />
+                                                                </Button>
+                                                            }
+                                                        />
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                onClick={() =>
+                                                                    void deleteExperiment(
+                                                                        experiment._id,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    rowActionId ===
+                                                                    experiment._id
+                                                                }
+                                                                className="gap-2 text-red-500"
+                                                            >
+                                                                <Trash2 className="size-3.5" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
                     )}
                 </div>
             </div>
@@ -1603,7 +1615,7 @@ export function ClipsTab() {
                                             )}
                                         </div>
                                     ) : selectedExperiment.status ===
-                                          "completed" ? (
+                                      "completed" ? (
                                         <div className="flex min-h-64 items-center justify-center rounded-lg border bg-muted/30 px-6 text-center text-sm text-muted-foreground">
                                             Output expired and was removed from
                                             disk after one hour.
@@ -1670,7 +1682,8 @@ export function ClipsTab() {
                                                         Uploads
                                                     </td>
                                                     <td className="px-4 py-2 text-muted-foreground">
-                                                        {selectedExperiment.uploads?.length
+                                                        {selectedExperiment
+                                                            .uploads?.length
                                                             ? `${selectedExperiment.uploads.filter((item) => item.status === "uploaded").length} uploaded · ${selectedExperiment.uploads.filter((item) => item.status === "failed").length} failed`
                                                             : "None"}
                                                     </td>

@@ -1568,7 +1568,7 @@ async function main() {
             const overlayScale = `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1`;
             const overlayFilter =
                 overlayBlendMode && overlayBlendMode !== "normal"
-                    ? `[1:v]${overlayScale},format=gbrp[ovr];[0:v]format=gbrp[base];[base][ovr]blend=all_mode=${overlayBlendMode}[vout]`
+                    ? `[1:v]${overlayScale},format=yuv420p[ovr];[0:v]format=yuv420p[base];[base][ovr]blend=all_mode=${overlayBlendMode}[vout]`
                     : `[1:v]${overlayScale}[ovr];[0:v][ovr]overlay=0:0:eof_action=pass[vout]`;
             await runFfmpegWithProgress(
                 [

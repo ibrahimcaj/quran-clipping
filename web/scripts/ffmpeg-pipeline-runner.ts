@@ -1044,6 +1044,13 @@ async function main() {
                     verseAudioUrl(existingVerseKey, recitationId),
                     tempAudioPath,
                 );
+                if (!fs.existsSync(tempAudioPath)) {
+                    throw new Error(`Downloaded audio file not found at ${tempAudioPath}`);
+                }
+                const stats = fs.statSync(tempAudioPath);
+                if (stats.size === 0) {
+                    throw new Error(`Downloaded audio file is empty (0 bytes)`);
+                }
                 targetSeconds = await ffprobeDuration(tempAudioPath);
             } finally {
                 if (fs.existsSync(tempAudioPath))

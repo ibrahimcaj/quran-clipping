@@ -12,7 +12,7 @@ declare global {
 global.__workerRunning ??= false;
 global.__autoclipRunning ??= false;
 
-async function runAutoclip() {
+export async function runAutoclip() {
     if (global.__autoclipRunning) return;
     global.__autoclipRunning = true;
 

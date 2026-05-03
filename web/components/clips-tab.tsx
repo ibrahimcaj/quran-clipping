@@ -30,6 +30,7 @@ import {
     Bookmark,
     ChevronDown,
     ChevronRight,
+    Loader2,
     MoreHorizontal,
     Pin,
     RotateCcw,
@@ -192,11 +193,6 @@ interface ExperimentAsset {
 interface ChapterMeta {
     id: number;
     name_simple: string;
-}
-
-interface ExperimentSourceVideo {
-    id: string;
-    name: string;
 }
 
 interface SavedAyah {
@@ -570,6 +566,7 @@ export function ClipsTab() {
     const [selectedSavedAyahId, setSelectedSavedAyahId] = useState("");
     const [savingAyah, setSavingAyah] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [runningWorker, setRunningWorker] = useState(false);
     const [textOverride, setTextOverride] = useState<{
         title: string;
         subtitle: string;
@@ -1206,32 +1203,44 @@ export function ClipsTab() {
             : selectedExperiment.logs.slice(-logLimit)
         : [];
 
-    const selectedExperimentVideos = useMemo<ExperimentSourceVideo[]>(() => {
-        if (!selectedExperiment) return [];
-        return (selectedExperiment.sourceVideoNames ?? [])
-            .map((name, index) => {
-                const matchedVideo = videos.find(
-                    (v) => v.originalFilename === name,
-                );
-                return {
-                    id:
-                        selectedExperiment.sourceVideoIds?.[index] ??
-                        matchedVideo?._id ??
-                        "",
-                    name,
-                };
-            })
-            .filter((v) => v.id !== "");
-    }, [selectedExperiment, videos]);
+    async function runWorkerNow() {
+        setRunningWorker(true);
+        try {
+            const res = await fetch("/api/worker/run", {
+                method: "POST",
+            });
+            const data = await readJson<{ error?: string }>(res);
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to run worker");
+            }
+            toast.success("Worker run requested.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        } finally {
+            setRunningWorker(false);
+        }
+    }
 
     return (
         <div className="flex flex-col gap-8 w-full">
-            <div>
-                <h1 className="text-2xl font-medium">Clips</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Find verses, preview timings, and generate rendered Quran
-                    clips.
-                </p>
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-medium">Clips</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                        Find verses, preview timings, and generate rendered
+                        Quran clips.
+                    </p>
+                </div>
+                <Button
+                    onClick={runWorkerNow}
+                    disabled={runningWorker}
+                    className="shrink-0"
+                >
+                    {runningWorker && (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                    )}
+                    Run Worker
+                </Button>
             </div>
 
             <div className="flex flex-col gap-4 w-full">
@@ -1861,25 +1870,6 @@ export function ClipsTab() {
                                                 src={`/api/ffmpeg/experiments/${selectedExperiment._id}/file`}
                                                 className="max-h-[60vh] w-full object-contain"
                                             />
-                                            {selectedExperimentVideos.length >
-                                                0 && (
-                                                <div className="flex overflow-x-auto border-t bg-background">
-                                                    {selectedExperimentVideos.map(
-                                                        (video) => (
-                                                            // eslint-disable-next-line @next/next/no-img-element
-                                                            <img
-                                                                key={video.id}
-                                                                src={`/api/videos/${video.id}/frame`}
-                                                                alt={video.name}
-                                                                title={
-                                                                    video.name
-                                                                }
-                                                                className="h-[42px] w-[42px] object-cover shrink-0"
-                                                            />
-                                                        ),
-                                                    )}
-                                                </div>
-                                            )}
                                         </div>
                                     ) : selectedExperiment.status ===
                                       "completed" ? (

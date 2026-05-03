@@ -41,26 +41,24 @@ export async function GET(
 
     const framesDir = buildVideoFramesDir(id, String(doc.name ?? id));
     ensureDir(framesDir);
-    const framePath = path.join(framesDir, "first.jpg");
+    const framePath = path.join(framesDir, "first-32.jpg");
 
-    if (!fs.existsSync(framePath)) {
-        await runFfmpeg([
-            "-y",
-            "-ss", "0.05",
-            "-i", doc.filePath as string,
-            "-frames:v", "1",
-            "-vf", "scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080",
-            "-q:v", "2",
-            framePath,
-        ]);
-    }
+    await runFfmpeg([
+        "-y",
+        "-ss", "0.05",
+        "-i", doc.filePath as string,
+        "-frames:v", "1",
+        "-vf", "scale=32:32:force_original_aspect_ratio=increase,crop=32:32",
+        "-q:v", "6",
+        framePath,
+    ]);
 
     const buffer = fs.readFileSync(framePath);
     return new Response(buffer, {
         headers: {
             "Content-Type": "image/jpeg",
             "Content-Length": buffer.byteLength.toString(),
-            "Cache-Control": "public, max-age=31536000, immutable",
+            "Cache-Control": "no-store",
         },
     });
 }

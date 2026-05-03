@@ -1,6 +1,12 @@
-export function getVerseDurationSeconds(verse: Record<string, unknown>): number | null {
+export function getVerseDurationSeconds(
+    verse: Record<string, unknown>,
+): number | null {
     const audio = verse.audio as { segments?: unknown } | null | undefined;
-    if (!audio || !Array.isArray(audio.segments) || audio.segments.length === 0) {
+    if (
+        !audio ||
+        !Array.isArray(audio.segments) ||
+        audio.segments.length === 0
+    ) {
         return null;
     }
 
@@ -13,12 +19,12 @@ export function getVerseDurationSeconds(verse: Record<string, unknown>): number 
         let endTime: number | null = null;
 
         // ayah-recitation verse payloads: [segment_index, word_position, from_ms, to_ms]
-        if (segment.length >= 4 && typeof segment[3] === 'number') {
+        if (segment.length >= 4 && typeof segment[3] === "number") {
             endTime = segment[3];
         }
 
         // chapter-reciter timing payloads: [word_position, from_ms, to_ms]
-        if (segment.length === 3 && typeof segment[2] === 'number') {
+        if (segment.length === 3 && typeof segment[2] === "number") {
             endTime = segment[2];
         }
 

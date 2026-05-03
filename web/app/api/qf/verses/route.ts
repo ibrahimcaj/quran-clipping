@@ -1,7 +1,12 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
-import { getToken, getApiBase, getClientId, clearTokenCache } from "@/lib/qf-token";
+import {
+    getToken,
+    getApiBase,
+    getClientId,
+    clearTokenCache,
+} from "@/lib/qf-token";
 import { getDb } from "@/lib/mongodb";
 import { getVerseDurationSeconds } from "@/lib/verse-utils";
 
@@ -18,7 +23,10 @@ async function qfFetch(url: string, token: string): Promise<Response> {
 
 async function isInvalidTokenResponse(res: Response): Promise<boolean> {
     if (res.status !== 401 && res.status !== 403) return false;
-    const text = await res.clone().text().catch(() => "");
+    const text = await res
+        .clone()
+        .text()
+        .catch(() => "");
     if (!text) return res.status === 401;
     try {
         const data = JSON.parse(text) as {
@@ -45,23 +53,35 @@ async function qfFetchWithRetry(url: string): Promise<Response> {
     return res;
 }
 
-async function parseResponse(res: Response): Promise<{ data: unknown; ok: boolean }> {
+async function parseResponse(
+    res: Response,
+): Promise<{ data: unknown; ok: boolean }> {
     const text = await res.text().catch(() => "");
     if (!text) {
-        return { data: { error: `QF API returned empty body (HTTP ${res.status})` }, ok: false };
+        return {
+            data: { error: `QF API returned empty body (HTTP ${res.status})` },
+            ok: false,
+        };
     }
     try {
         return { data: JSON.parse(text), ok: res.ok };
     } catch {
         return {
-            data: { error: `QF API returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` },
+            data: {
+                error: `QF API returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
+            },
             ok: false,
         };
     }
 }
 
-function normalizeWordSegments(segments: unknown): Map<number, { timestamp_from: number; timestamp_to: number }> {
-    const byPosition = new Map<number, { timestamp_from: number; timestamp_to: number }>();
+function normalizeWordSegments(
+    segments: unknown,
+): Map<number, { timestamp_from: number; timestamp_to: number }> {
+    const byPosition = new Map<
+        number,
+        { timestamp_from: number; timestamp_to: number }
+    >();
     if (!Array.isArray(segments)) return byPosition;
 
     for (const segment of segments) {
@@ -107,9 +127,10 @@ function normalizeVerse<T extends Record<string, unknown>>(verse: T): T {
     const normalizedWords = words
         .map((word) => {
             if (!word || typeof word !== "object") return word;
-            const position = typeof (word as { position?: unknown }).position === "number"
-                ? ((word as { position: number }).position)
-                : null;
+            const position =
+                typeof (word as { position?: unknown }).position === "number"
+                    ? (word as { position: number }).position
+                    : null;
             const timing = position ? segmentMap.get(position) : undefined;
             return {
                 ...word,
@@ -117,12 +138,14 @@ function normalizeVerse<T extends Record<string, unknown>>(verse: T): T {
             };
         })
         .sort((a, b) => {
-            const aPos = typeof (a as { position?: unknown }).position === "number"
-                ? (a as { position: number }).position
-                : 0;
-            const bPos = typeof (b as { position?: unknown }).position === "number"
-                ? (b as { position: number }).position
-                : 0;
+            const aPos =
+                typeof (a as { position?: unknown }).position === "number"
+                    ? (a as { position: number }).position
+                    : 0;
+            const bPos =
+                typeof (b as { position?: unknown }).position === "number"
+                    ? (b as { position: number }).position
+                    : 0;
             return aPos - bPos;
         });
 
@@ -162,15 +185,14 @@ export async function GET(req: NextRequest) {
             translations,
             audio: recitation,
             fields: "text_uthmani,text_imlaei,text_imlaei_simple,verse_key",
-            word_fields: "text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1",
+            word_fields:
+                "text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1",
         });
         let path: string;
-        let verseLookupConfig:
-            | {
-                  chapterNumber: string;
-                  targetVerseNumber: number;
-              }
-            | null = null;
+        let verseLookupConfig: {
+            chapterNumber: string;
+            targetVerseNumber: number;
+        } | null = null;
 
         if (random) {
             path = `${base}/content/api/v4/verses/random?${commonParams.toString()}`;
@@ -195,7 +217,9 @@ export async function GET(req: NextRequest) {
             path = `${base}/content/api/v4/verses/by_chapter/${chapter}?${chapterParams.toString()}`;
         } else {
             return NextResponse.json(
-                { error: "Provide ?random=true, ?verse_key=<chapter:ayah>, or ?chapter=<number>" },
+                {
+                    error: "Provide ?random=true, ?verse_key=<chapter:ayah>, or ?chapter=<number>",
+                },
                 { status: 400 },
             );
         }
@@ -204,7 +228,9 @@ export async function GET(req: NextRequest) {
         let res: Response;
         if (random) {
             const db = await getDb();
-            const videoCfg = await db.collection("configuration").findOne({ type: "video" }) as {
+            const videoCfg = (await db
+                .collection("configuration")
+                .findOne({ type: "video" })) as {
                 ayahMinDuration?: number;
                 ayahMaxDuration?: number;
             } | null;
@@ -217,16 +243,23 @@ export async function GET(req: NextRequest) {
 
             while (attempts < maxAttempts && !foundVerse) {
                 if (attempts > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise((resolve) => setTimeout(resolve, 500));
                 }
                 const tempRes = await qfFetchWithRetry(path);
-                const { data: tempData, ok: tempOk } = await parseResponse(tempRes);
+                const { data: tempData, ok: tempOk } =
+                    await parseResponse(tempRes);
 
                 if (tempOk && tempData && typeof tempData === "object") {
-                    const verse = (tempData as { verse?: Record<string, unknown> }).verse;
+                    const verse = (
+                        tempData as { verse?: Record<string, unknown> }
+                    ).verse;
                     if (verse) {
                         const duration = getVerseDurationSeconds(verse);
-                        if (duration !== null && duration >= minDuration && duration <= maxDuration) {
+                        if (
+                            duration !== null &&
+                            duration >= minDuration &&
+                            duration <= maxDuration
+                        ) {
                             foundVerse = verse;
                             res = tempRes;
                         }
@@ -237,7 +270,9 @@ export async function GET(req: NextRequest) {
 
             if (!foundVerse) {
                 return NextResponse.json(
-                    { error: `Could not find random verse within ${minDuration}-${maxDuration}s range after ${maxAttempts} attempts` },
+                    {
+                        error: `Could not find random verse within ${minDuration}-${maxDuration}s range after ${maxAttempts} attempts`,
+                    },
                     { status: 404 },
                 );
             }
@@ -249,8 +284,7 @@ export async function GET(req: NextRequest) {
             const chapterParams = new URLSearchParams(commonParams);
             chapterParams.set("page", "1");
             chapterParams.set("per_page", "50");
-            const chapterBasePath =
-                `${base}/content/api/v4/verses/by_chapter/${verseLookupConfig.chapterNumber}`;
+            const chapterBasePath = `${base}/content/api/v4/verses/by_chapter/${verseLookupConfig.chapterNumber}`;
 
             let chapterRes = res;
 
@@ -263,12 +297,16 @@ export async function GET(req: NextRequest) {
                     (firstChapterPage.data as { verses?: unknown[] }).verses,
                 )
             ) {
-                let verses = (firstChapterPage.data as {
-                    verses: Record<string, unknown>[];
-                }).verses;
-                let nextPage = (firstChapterPage.data as {
-                    pagination?: { next_page?: number | null };
-                }).pagination?.next_page;
+                let verses = (
+                    firstChapterPage.data as {
+                        verses: Record<string, unknown>[];
+                    }
+                ).verses;
+                let nextPage = (
+                    firstChapterPage.data as {
+                        pagination?: { next_page?: number | null };
+                    }
+                ).pagination?.next_page;
 
                 while (
                     !verses.some(
@@ -295,12 +333,16 @@ export async function GET(req: NextRequest) {
                     ) {
                         break;
                     }
-                    verses = (nextChapterPage.data as {
-                        verses: Record<string, unknown>[];
-                    }).verses;
-                    nextPage = (nextChapterPage.data as {
-                        pagination?: { next_page?: number | null };
-                    }).pagination?.next_page;
+                    verses = (
+                        nextChapterPage.data as {
+                            verses: Record<string, unknown>[];
+                        }
+                    ).verses;
+                    nextPage = (
+                        nextChapterPage.data as {
+                            pagination?: { next_page?: number | null };
+                        }
+                    ).pagination?.next_page;
                 }
 
                 const matchedVerse = verses.find(
@@ -320,7 +362,8 @@ export async function GET(req: NextRequest) {
             return NextResponse.json(
                 {
                     details:
-                        firstChapterPage.data && typeof firstChapterPage.data === "object"
+                        firstChapterPage.data &&
+                        typeof firstChapterPage.data === "object"
                             ? firstChapterPage.data
                             : undefined,
                     error: "Ayah not found in chapter response",
@@ -344,7 +387,9 @@ export async function GET(req: NextRequest) {
         }
 
         if (Array.isArray(payload.verses)) {
-            payload.verses = payload.verses.map((verse) => normalizeVerse(verse));
+            payload.verses = payload.verses.map((verse) =>
+                normalizeVerse(verse),
+            );
         }
 
         return NextResponse.json(payload, { status: 200 });

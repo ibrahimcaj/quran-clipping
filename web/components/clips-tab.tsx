@@ -882,7 +882,9 @@ export function ClipsTab() {
         setTextOverrideDraftScaleY(textOverride?.scaleY ?? 125);
         setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? 0);
         setTextOverrideDraftTitleColor(textOverride?.titleColor ?? "FFFFFF");
-        setTextOverrideDraftSubtitleColor(textOverride?.subtitleColor ?? "FFFFFF");
+        setTextOverrideDraftSubtitleColor(
+            textOverride?.subtitleColor ?? "FFFFFF",
+        );
         setTextOverrideOpen(true);
     }
 
@@ -1803,14 +1805,18 @@ export function ClipsTab() {
                                     <Label>Title color</Label>
                                     <ColorPicker
                                         value={textOverrideDraftTitleColor}
-                                        onChange={setTextOverrideDraftTitleColor}
+                                        onChange={
+                                            setTextOverrideDraftTitleColor
+                                        }
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <Label>Subtitle color</Label>
                                     <ColorPicker
                                         value={textOverrideDraftSubtitleColor}
-                                        onChange={setTextOverrideDraftSubtitleColor}
+                                        onChange={
+                                            setTextOverrideDraftSubtitleColor
+                                        }
                                     />
                                 </div>
                             </div>

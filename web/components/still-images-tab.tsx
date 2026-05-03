@@ -43,7 +43,7 @@ export function StillImagesTab() {
     const [subtitleFontSize, setSubtitleFontSize] = useState(14);
     const [scaleX, setScaleX] = useState(80);
     const [scaleY, setScaleY] = useState(125);
-    const [lineSpacing, setLineSpacing] = useState(0);
+    const [lineSpacing, setLineSpacing] = useState(8);
     const [vignette, setVignette] = useState(0);
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);

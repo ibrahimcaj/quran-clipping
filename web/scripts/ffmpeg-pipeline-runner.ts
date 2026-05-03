@@ -717,7 +717,7 @@ function createAssCard(
     subtitleFontSize = 11,
     scaleX = 80,
     scaleY = 125,
-    lineSpacing = 0,
+    lineSpacing = 8,
 ): string {
     const cy = size / 2;
     // marginV for bottom-aligned title: text bottom = size - marginV = cy - lineSpacing/2

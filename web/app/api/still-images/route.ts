@@ -41,19 +41,17 @@ function makeAssCard(
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const styles = subtitle
         ? [
-            `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
-            `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
+              `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
+              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
           ]
-        : [
-            `Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`,
-          ];
+        : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
     const dialogues = subtitle
         ? [
-                        `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
-                        `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,${marginV},,{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,${marginV},,{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
           ]
         : [
-                        `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
           ];
     return [
         "[Script Info]",
@@ -153,7 +151,10 @@ export async function POST(req: NextRequest) {
         };
         const safeScaleX = Math.max(1, Math.min(500, Math.round(scaleX)));
         const safeScaleY = Math.max(1, Math.min(500, Math.round(scaleY)));
-        const safeLineSpacing = Math.max(-100, Math.min(200, Math.round(lineSpacing)));
+        const safeLineSpacing = Math.max(
+            -100,
+            Math.min(200, Math.round(lineSpacing)),
+        );
         const safeTitleFontSize = Math.max(
             8,
             Math.min(200, Math.round(titleFontSize)),

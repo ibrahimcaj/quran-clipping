@@ -296,15 +296,19 @@ async function ffprobeDuration(inputPath: string): Promise<number> {
             ],
         );
         let stdout = "";
+        let stderr = "";
         proc.stdout.on("data", (data) => {
             stdout += data.toString();
+        });
+        proc.stderr.on("data", (data) => {
+            stderr += data.toString();
         });
         proc.on("close", (code) => {
             if (code === 0) {
                 const duration = parseFloat(stdout.trim());
                 resolve(Number.isFinite(duration) ? duration : 0);
             } else {
-                reject(new Error(`ffprobe exit code ${code}`));
+                reject(new Error(`ffprobe exit code ${code}${stderr ? `: ${stderr}` : ""}`));
             }
         });
         proc.on("error", reject);
@@ -1048,10 +1052,14 @@ async function main() {
                     throw new Error(`Downloaded audio file not found at ${tempAudioPath}`);
                 }
                 const stats = fs.statSync(tempAudioPath);
+                await log(`Downloaded audio: ${stats.size} bytes`);
                 if (stats.size === 0) {
                     throw new Error(`Downloaded audio file is empty (0 bytes)`);
                 }
                 targetSeconds = await ffprobeDuration(tempAudioPath);
+            } catch (err) {
+                await log(`Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`);
+                throw err;
             } finally {
                 if (fs.existsSync(tempAudioPath))
                     fs.rmSync(tempAudioPath, { force: true });

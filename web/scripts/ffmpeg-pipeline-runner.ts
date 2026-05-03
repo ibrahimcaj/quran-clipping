@@ -953,19 +953,6 @@ async function main() {
             await log(`Selected reciter: ${reciterName}`);
         }
 
-        await setStep("Collect available videos");
-        const timedVideos = await collectTimedVideos(db);
-        if (timedVideos.length === 0) {
-            throw new Error("No valid videos available");
-        }
-        const maxCoverageSeconds = timedVideos.reduce(
-            (sum, video) => sum + Math.min(video.durationSeconds, maxVideoClipSeconds),
-            0,
-        );
-        await log(
-            `Unique usable video coverage: ${maxCoverageSeconds.toFixed(2)}s`,
-        );
-
         const videoConfigDoc = await db
             .collection("configuration")
             .findOne({ type: "video" });
@@ -985,6 +972,19 @@ async function main() {
             typeof videoConfigDoc?.maxVideoClipSeconds === "number"
                 ? videoConfigDoc.maxVideoClipSeconds
                 : 5;
+
+        await setStep("Collect available videos");
+        const timedVideos = await collectTimedVideos(db);
+        if (timedVideos.length === 0) {
+            throw new Error("No valid videos available");
+        }
+        const maxCoverageSeconds = timedVideos.reduce(
+            (sum, video) => sum + Math.min(video.durationSeconds, maxVideoClipSeconds),
+            0,
+        );
+        await log(
+            `Unique usable video coverage: ${maxCoverageSeconds.toFixed(2)}s`,
+        );
 
         let verse: VersePayload;
         let targetSeconds: number;

@@ -152,10 +152,12 @@ async function tick() {
         const now = Date.now();
         if (now - global.__lastAutoclipTime! >= AUTOCLIP_INTERVAL_MS) {
             global.__lastAutoclipTime = now;
+            const randomDelayMs = Math.random() * (15 * 60 * 1000 - 1 * 60 * 1000) + 1 * 60 * 1000;
             await db.collection("autoclipJobs").insertOne({
                 _id: new ObjectId(),
                 status: "queued",
                 createdAt: new Date(),
+                processAfter: new Date(now + randomDelayMs),
                 updatedAt: new Date(),
             });
         }
@@ -164,6 +166,7 @@ async function tick() {
             .collection("autoclipJobs")
             .find({
                 status: "queued",
+                processAfter: { $lte: new Date() },
                 _id: { $nin: runningIds.map((id) => new ObjectId(id)) },
             })
             .limit(slots)

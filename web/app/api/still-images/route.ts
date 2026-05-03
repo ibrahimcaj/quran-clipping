@@ -27,26 +27,71 @@ function escapeAss(t: string) {
         .replace(/\r?\n/g, "\\N");
 }
 
-function countLines(text: string) {
-    return text.length ? text.split(/\r?\n/).length : 0;
+function estimateLineWidth(text: string, fontSize: number, scaleX: number) {
+    const horizontalScale = scaleX / 100;
+    let units = 0;
+    for (const char of text) {
+        if (char === " ") units += 0.35;
+        else if ("ilI'`.,:;!|".includes(char)) units += 0.28;
+        else if ("mwMW@#%&".includes(char)) units += 0.9;
+        else units += 0.6;
+    }
+    return units * fontSize * horizontalScale;
+}
+
+function wrapText(
+    text: string,
+    fontSize: number,
+    scaleX: number,
+    maxWidth: number,
+) {
+    const sourceLines = text.split(/\r?\n/);
+    const wrapped: string[] = [];
+
+    for (const sourceLine of sourceLines) {
+        const trimmed = sourceLine.trim();
+        if (!trimmed) {
+            wrapped.push("");
+            continue;
+        }
+
+        const words = trimmed.split(/\s+/);
+        let current = "";
+
+        for (const word of words) {
+            const next = current ? `${current} ${word}` : word;
+            if (
+                current &&
+                estimateLineWidth(next, fontSize, scaleX) > maxWidth
+            ) {
+                wrapped.push(current);
+                current = word;
+            } else {
+                current = next;
+            }
+        }
+
+        if (current) wrapped.push(current);
+    }
+
+    return wrapped;
 }
 
 function blockHeight(
-    text: string,
+    lines: string[],
     fontSize: number,
     lineSpacing: number,
     scaleY: number,
 ) {
-    const lines = countLines(text);
-    if (!lines) return 0;
+    if (!lines.length) return 0;
     const scaledFontSize = fontSize * (scaleY / 100);
     // lineSpacing controls spacing within each multiline block.
     const lineStep = scaledFontSize + lineSpacing;
-    return lines * lineStep - lineSpacing;
+    return lines.length * lineStep - lineSpacing;
 }
 
 function makeLineDialogues(
-    text: string,
+    lines: string[],
     styleName: string,
     fontName: string,
     fontSize: number,
@@ -54,8 +99,7 @@ function makeLineDialogues(
     lineSpacing: number,
     scaleY: number,
 ): (string | null)[] {
-    if (!text.length) return [];
-    const lines = text.split(/\r?\n/);
+    if (!lines.length) return [];
     const scaledFontSize = fontSize * (scaleY / 100);
     const lineStep = scaledFontSize + lineSpacing;
     return lines.map((line, index) => {
@@ -76,20 +120,30 @@ function makeAssCard(
 ): string {
     const cy = TEXT_CARD_SIZE / 2;
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
-    const styles = subtitle
+    const hasSubtitle = subtitle.trim().length > 0;
+    const maxTextWidth = TEXT_CARD_SIZE * 0.78;
+    const titleLines = wrapText(title, titleFontSize, scaleX, maxTextWidth);
+    const subtitleLines = hasSubtitle
+        ? wrapText(subtitle, subtitleFontSize, scaleX, maxTextWidth)
+        : [];
+    const styles = hasSubtitle
         ? [
               `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,0,1`,
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
-    const titleHeight = blockHeight(title, titleFontSize, lineSpacing, scaleY);
+    const titleHeight = blockHeight(
+        titleLines,
+        titleFontSize,
+        lineSpacing,
+        scaleY,
+    );
     const subtitleHeight = blockHeight(
-        subtitle,
+        subtitleLines,
         subtitleFontSize,
         lineSpacing,
         scaleY,
     );
-    const hasSubtitle = subtitle.trim().length > 0;
     // The same lineSpacing also controls the gap between title and subtitle.
     const blockGap = lineSpacing;
     const groupHeight = hasSubtitle
@@ -101,7 +155,7 @@ function makeAssCard(
     const dialogues = hasSubtitle
         ? [
               ...makeLineDialogues(
-                  title,
+                  titleLines,
                   "Title",
                   "Geeza Pro",
                   titleFontSize,
@@ -110,7 +164,7 @@ function makeAssCard(
                   scaleY,
               ),
               ...makeLineDialogues(
-                  subtitle,
+                  subtitleLines,
                   "Sub",
                   "Arial",
                   subtitleFontSize,
@@ -121,11 +175,18 @@ function makeAssCard(
           ].filter((dialogue): dialogue is string => dialogue !== null)
         : [
               ...makeLineDialogues(
-                  title,
+                  titleLines,
                   "Default",
                   "Geeza Pro",
                   titleFontSize,
-                  cy - blockHeight(title, titleFontSize, lineSpacing, scaleY) / 2,
+                  cy -
+                      blockHeight(
+                          titleLines,
+                          titleFontSize,
+                          lineSpacing,
+                          scaleY,
+                      ) /
+                          2,
                   lineSpacing,
                   scaleY,
               ),

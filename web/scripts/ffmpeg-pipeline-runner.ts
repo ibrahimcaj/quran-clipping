@@ -709,26 +709,71 @@ function formatAssTimestamp(seconds: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
-function countAssLines(text: string) {
-    return text.length ? text.split(/\r?\n/).length : 0;
+function estimateAssLineWidth(text: string, fontSize: number, scaleX: number) {
+    const horizontalScale = scaleX / 100;
+    let units = 0;
+    for (const char of text) {
+        if (char === " ") units += 0.35;
+        else if ("ilI'`.,:;!|".includes(char)) units += 0.28;
+        else if ("mwMW@#%&".includes(char)) units += 0.9;
+        else units += 0.6;
+    }
+    return units * fontSize * horizontalScale;
+}
+
+function wrapAssText(
+    text: string,
+    fontSize: number,
+    scaleX: number,
+    maxWidth: number,
+) {
+    const sourceLines = text.split(/\r?\n/);
+    const wrapped: string[] = [];
+
+    for (const sourceLine of sourceLines) {
+        const trimmed = sourceLine.trim();
+        if (!trimmed) {
+            wrapped.push("");
+            continue;
+        }
+
+        const words = trimmed.split(/\s+/);
+        let current = "";
+
+        for (const word of words) {
+            const next = current ? `${current} ${word}` : word;
+            if (
+                current &&
+                estimateAssLineWidth(next, fontSize, scaleX) > maxWidth
+            ) {
+                wrapped.push(current);
+                current = word;
+            } else {
+                current = next;
+            }
+        }
+
+        if (current) wrapped.push(current);
+    }
+
+    return wrapped;
 }
 
 function assBlockHeight(
-    text: string,
+    lines: string[],
     fontSize: number,
     lineSpacing: number,
     scaleY: number,
 ) {
-    const lines = countAssLines(text);
-    if (!lines) return 0;
+    if (!lines.length) return 0;
     const scaledFontSize = fontSize * (scaleY / 100);
     // lineSpacing controls spacing within each multiline block.
     const lineStep = scaledFontSize + lineSpacing;
-    return lines * lineStep - lineSpacing;
+    return lines.length * lineStep - lineSpacing;
 }
 
 function createAssLineDialogues(
-    text: string,
+    lines: string[],
     styleName: string,
     fontName: string,
     fontSize: number,
@@ -737,8 +782,7 @@ function createAssLineDialogues(
     lineSpacing: number,
     scaleY: number,
 ): string[] {
-    if (!text.length) return [];
-    const lines = text.split(/\r?\n/);
+    if (!lines.length) return [];
     const scaledFontSize = fontSize * (scaleY / 100);
     const lineStep = scaledFontSize + lineSpacing;
     return lines.flatMap((line, index) => {
@@ -762,25 +806,30 @@ function createAssCard(
 ): string {
     const cy = size / 2;
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
-    const styles = english
+    const hasSubtitle = english.trim().length > 0;
+    const maxTextWidth = size * 0.78;
+    const titleLines = wrapAssText(arabic, titleFontSize, scaleX, maxTextWidth);
+    const subtitleLines = hasSubtitle
+        ? wrapAssText(english, subtitleFontSize, scaleX, maxTextWidth)
+        : [];
+    const styles = hasSubtitle
         ? [
               `Style: Title,Geeza Pro,${titleFontSize},${base},8,0,0,0,1`,
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
     const titleHeight = assBlockHeight(
-        arabic,
+        titleLines,
         titleFontSize,
         lineSpacing,
         scaleY,
     );
     const subtitleHeight = assBlockHeight(
-        english,
+        subtitleLines,
         subtitleFontSize,
         lineSpacing,
         scaleY,
     );
-    const hasSubtitle = english.trim().length > 0;
     // The same lineSpacing also controls the gap between title and subtitle.
     const blockGap = lineSpacing;
     const groupHeight = hasSubtitle
@@ -792,7 +841,7 @@ function createAssCard(
     const dialogues = hasSubtitle
         ? [
               ...createAssLineDialogues(
-                  arabic,
+                  titleLines,
                   "Title",
                   "Geeza Pro",
                   titleFontSize,
@@ -802,7 +851,7 @@ function createAssCard(
                   scaleY,
               ),
               ...createAssLineDialogues(
-                  english,
+                  subtitleLines,
                   "Sub",
                   "Arial",
                   subtitleFontSize,
@@ -813,12 +862,19 @@ function createAssCard(
               ),
           ]
         : createAssLineDialogues(
-              arabic,
+              titleLines,
               "Default",
               "Geeza Pro",
               titleFontSize,
               size,
-              cy - assBlockHeight(arabic, titleFontSize, lineSpacing, scaleY) / 2,
+              cy -
+                  assBlockHeight(
+                      titleLines,
+                      titleFontSize,
+                      lineSpacing,
+                      scaleY,
+                  ) /
+                      2,
               lineSpacing,
               scaleY,
           );

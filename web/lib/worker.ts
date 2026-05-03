@@ -21,6 +21,17 @@ async function runAutoclip() {
 
     try {
         db = await getDb();
+
+        // db-level guard: skip if a job is already processing or started recently
+        const cutoff = new Date(Date.now() - 90 * 60 * 1000);
+        const active = await db.collection("autoclipJobs").findOne({
+            status: "processing",
+            startedAt: { $gt: cutoff },
+        });
+        if (active) {
+            global.__autoclipRunning = false;
+            return;
+        }
         await db.collection("autoclipJobs").insertOne({
             _id: jobId,
             status: "processing",

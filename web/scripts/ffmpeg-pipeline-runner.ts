@@ -210,20 +210,14 @@ async function runProcess(
                 const line = rawLine.trim();
                 if (!line) continue;
 
-                const interesting =
-                    line.includes("time=") ||
-                    line.includes("Duration:") ||
-                    line.startsWith("Input #") ||
-                    line.startsWith("Output #") ||
-                    line.includes("Stream mapping");
-
+                // log errors immediately; throttle everything else to ~1/sec
+                const isError = /error|invalid|no such file|cannot open|failed|undefined/i.test(line);
                 const now = Date.now();
-                if (interesting && onLine && now - lastLoggedAt > 700) {
+                if (onLine && (isError || now - lastLoggedAt > 1000)) {
                     lastLoggedAt = now;
                     await onLine(line);
                 }
 
-                // parse progress from frame= lines
                 if (line.includes("frame=") && onProgress) {
                     const frameMatch = line.match(/frame=\s*(\d+)/);
                     const fpsMatch = line.match(/fps=\s*([\d.]+)/);
@@ -299,15 +293,20 @@ async function runFfmpegWithProgress(
     onLine?: (line: string) => Promise<void> | void,
     setProgressFn?: (progress: { frame?: number; fps?: number; time?: number; percent?: number }) => Promise<void> | void,
 ): Promise<void> {
-    // probe input file for duration
+    if (onLine) {
+        // log the full command so stuck steps are debuggable
+        await onLine(`ffmpeg ${args.map(a => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`);
+    }
+
     let totalSeconds = 0;
     const inputIndex = args.indexOf("-i");
     if (inputIndex !== -1 && inputIndex + 1 < args.length) {
         const inputFile = args[inputIndex + 1];
         try {
             totalSeconds = await ffprobeDuration(inputFile);
+            if (onLine && totalSeconds > 0) await onLine(`input duration: ${totalSeconds.toFixed(2)}s`);
         } catch {
-            // if probing fails, we'll just not calc percentage
+            // probing failed — percent tracking unavailable
         }
     }
 
@@ -1350,6 +1349,7 @@ async function main() {
                     `[0:v][1:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,0,${targetSeconds.toFixed(3)})':eof_action=pass[vout]`,
                     "-map", "[vout]",
                     "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-an",
+                    "-shortest",
                     paths.textOverlaid,
                 ],
                 log, setProgress,
@@ -1564,6 +1564,7 @@ async function main() {
                     "-pix_fmt",
                     "yuv420p",
                     "-an",
+                    "-shortest",
                     paths.overlaid,
                 ],
                 log,

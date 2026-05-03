@@ -1,7 +1,6 @@
 import { getDb } from "./mongodb";
 import { ObjectId } from "mongodb";
 import { spawn } from "child_process";
-import { getVerseDurationSeconds } from "./verse-utils";
 
 const CONCURRENCY = 3;
 const AUTOCLIP_INTERVAL_MS = 3600000; // 1 hour
@@ -48,50 +47,36 @@ async function runAutoclipJob(
                 enabledIds?: (string | number)[];
             } | null;
 
-            const videoCfg = await db.collection("configuration").findOne({ type: "video" }) as {
-                ayahMinDuration?: number;
-                ayahMaxDuration?: number;
-            } | null;
-
             const enabledIds = Array.isArray(reciterCfg?.enabledIds) && reciterCfg.enabledIds.length > 0
                 ? reciterCfg.enabledIds.map(String)
                 : ["7"];
-            const minDuration = videoCfg?.ayahMinDuration ?? 3;
-            const maxDuration = videoCfg?.ayahMaxDuration ?? 30;
 
-            let attempts = 0;
-            const maxAttempts = 33;
+            const appBase = process.env.NEXT_PUBLIC_APP_URL || `http://${process.env.HOST || "localhost"}:${process.env.PORT || 3000}`;
+
+            // 3 outer rounds × 11 internal attempts each ≈ 33 total QF API fetches
+            const outerAttempts = 3;
             let foundVerse: Record<string, unknown> | null = null;
             let foundRecitationId = "7";
 
-            while (attempts < maxAttempts && !foundVerse) {
-                if (attempts > 0) {
+            for (let i = 0; i < outerAttempts && !foundVerse; i++) {
+                if (i > 0) {
                     const gapMs = Math.random() * (3000 - 1000) + 1000;
                     await new Promise(resolve => setTimeout(resolve, gapMs));
                 }
                 const recitationId = enabledIds[Math.floor(Math.random() * enabledIds.length)];
                 const res = await fetch(
-                    `https://api.quran.com/api/v4/verses/random?recitation=${recitationId}&words=true&translations=131&word_fields=text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1`,
+                    `${appBase}/api/qf/verses?random=true&recitation=${recitationId}`,
                     { signal },
                 );
-                const data = (await res.json()) as {
-                    verse?: Record<string, unknown>;
-                };
-
+                if (!res.ok) continue;
+                const data = (await res.json()) as { verse?: Record<string, unknown> };
                 if (data.verse) {
-                    const duration = getVerseDurationSeconds(data.verse);
-                    if (duration !== null && duration >= minDuration && duration <= maxDuration) {
-                        foundVerse = data.verse;
-                        foundRecitationId = recitationId;
-                    }
+                    foundVerse = data.verse;
+                    foundRecitationId = recitationId;
                 }
-                attempts += 1;
             }
 
-            if (!foundVerse) {
-                return null;
-            }
-
+            if (!foundVerse) return null;
             return { verse: foundVerse, recitationId: foundRecitationId };
         })();
 

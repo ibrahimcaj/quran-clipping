@@ -9,22 +9,13 @@ import {
 import { getDb } from "@/lib/mongodb";
 import { getVerseDurationSeconds } from "@/lib/verse-utils";
 
-async function enrichWithTranslation<T extends Record<string, unknown>>(verse: T): Promise<T> {
-    const existing = (verse.translations as { text?: string }[] | undefined)?.[0]?.text;
+async function enrichWithTranslation<T extends Record<string, unknown>>(
+    verse: T,
+): Promise<T> {
+    const existing = (
+        verse.translations as { text?: string }[] | undefined
+    )?.[0]?.text;
     if (existing) return verse;
-    try {
-        const res = await fetch(
-            `https://api.quran.com/api/v4/verses/by_key/${verse.verse_key}?translations=131`,
-        );
-        if (!res.ok) return verse;
-        const data = await res.json() as { verse?: { translations?: { text?: string }[] } };
-        const translation = data.verse?.translations?.[0]?.text;
-        if (translation) {
-            return { ...verse, translations: [{ resource_id: 131, text: translation }] };
-        }
-    } catch {
-        // leave verse as-is
-    }
     return verse;
 }
 
@@ -181,7 +172,7 @@ export async function GET(req: NextRequest) {
         const verseKey = searchParams.get("verse_key");
         const page = searchParams.get("page") ?? "1";
         const perPage = searchParams.get("per_page") ?? "10";
-        const translations = searchParams.get("translations") ?? "131"; // Saheeh International
+        const translations = searchParams.get("translations") ?? "20"; // Saheeh International
         const recitation = searchParams.get("recitation") ?? DEFAULT_RECITATION;
         const normalizedVerseKey = verseKey
             ? verseKey
@@ -264,8 +255,9 @@ export async function GET(req: NextRequest) {
                     await new Promise((resolve) => setTimeout(resolve, 500));
                 }
                 const tempRes = await qfFetchWithRetry(path);
-                const { data: tempData, ok: tempOk } =
-                    await parseResponse(tempRes.clone());
+                const { data: tempData, ok: tempOk } = await parseResponse(
+                    tempRes.clone(),
+                );
 
                 if (tempOk && tempData && typeof tempData === "object") {
                     const verse = (
@@ -370,7 +362,9 @@ export async function GET(req: NextRequest) {
                             verseLookupConfig.targetVerseNumber,
                 );
                 if (matchedVerse) {
-                    const enriched = await enrichWithTranslation(normalizeVerse(matchedVerse));
+                    const enriched = await enrichWithTranslation(
+                        normalizeVerse(matchedVerse),
+                    );
                     return NextResponse.json(
                         { verse: enriched },
                         { status: 200 },
@@ -402,7 +396,9 @@ export async function GET(req: NextRequest) {
         };
 
         if (payload.verse) {
-            payload.verse = await enrichWithTranslation(normalizeVerse(payload.verse));
+            payload.verse = await enrichWithTranslation(
+                normalizeVerse(payload.verse),
+            );
         }
 
         if (Array.isArray(payload.verses)) {

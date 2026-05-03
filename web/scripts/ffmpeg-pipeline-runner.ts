@@ -414,7 +414,7 @@ function verseEndpoint(path: string, recitationId: string) {
     const params = new URLSearchParams({
         words: "true",
         audio: recitationId,
-        translations: "131",
+        translations: "20",
         fields: "text_uthmani,text_imlaei,text_imlaei_simple,verse_key",
         word_fields:
             "text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1",
@@ -1407,22 +1407,6 @@ async function main() {
             // get full verse translation — QF API may omit it, fall back to public Quran.com API
             let fullTranslation =
                 verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ?? "";
-            if (!fullTranslation) {
-                try {
-                    const fallbackRes = await fetch(
-                        `https://api.quran.com/api/v4/verses/by_key/${verseKey}?translations=131`,
-                    );
-                    const fallbackData = await fallbackRes.json() as {
-                        verse?: { translations?: { text?: string }[] };
-                    };
-                    fullTranslation =
-                        fallbackData.verse?.translations?.[0]?.text
-                            ?.replace(/<[^>]+>/g, "")
-                            .trim() ?? "";
-                } catch {
-                    // no fallback available
-                }
-            }
             await log(`Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 80)}..."`);
             const mappedSegments = fullTranslation
                 ? await mapTranslationsToSegments(arabicSegments, fullTranslation, log)

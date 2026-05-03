@@ -456,7 +456,7 @@ function VerseCard({
             </p>
 
             {translation && (
-                <p className="text-sm leading-relaxed border-t pt-3 text-foreground/80 italic">
+                <p className="text-sm leading-relaxed text-right -mt-4 text-foreground/80 italic">
                     {translation}
                 </p>
             )}
@@ -715,7 +715,7 @@ export function ClipsTab() {
             const params = new URLSearchParams({
                 verse_key: verseKey,
                 recitation: nextRecitationId,
-                translations: "131",
+                translations: "20",
             });
             const res = await fetch(`/api/qf/verses?${params}`);
             const text = await res.text();
@@ -1443,17 +1443,26 @@ export function ClipsTab() {
                                                 )}
                                             >
                                                 {experiment.currentStep}
-                                                {isCancellable && experiment.currentStepPercent != null && experiment.currentStepPercent > 0 && (
-                                                    <div className="flex items-center gap-2 mt-1.5 max-w-xs">
-                                                        <Progress
-                                                            value={experiment.currentStepPercent}
-                                                            className="h-0.5 flex-1"
-                                                        />
-                                                        <span className="text-[10px] tabular-nums shrink-0">
-                                                            {experiment.currentStepPercent}%
-                                                        </span>
-                                                    </div>
-                                                )}
+                                                {isCancellable &&
+                                                    experiment.currentStepPercent !=
+                                                        null &&
+                                                    experiment.currentStepPercent >
+                                                        0 && (
+                                                        <div className="flex items-center gap-2 mt-1.5 max-w-xs">
+                                                            <Progress
+                                                                value={
+                                                                    experiment.currentStepPercent
+                                                                }
+                                                                className="h-0.5 flex-1"
+                                                            />
+                                                            <span className="text-[10px] tabular-nums shrink-0">
+                                                                {
+                                                                    experiment.currentStepPercent
+                                                                }
+                                                                %
+                                                            </span>
+                                                        </div>
+                                                    )}
                                             </TableCell>
                                             <TableCell className="py-3 text-sm text-muted-foreground">
                                                 <div className="min-w-0">
@@ -1630,24 +1639,36 @@ export function ClipsTab() {
                                             <p className="text-sm text-muted-foreground mb-4">
                                                 {selectedExperiment.currentStep}
                                             </p>
-                                            {selectedExperiment.currentStepPercent !== undefined && selectedExperiment.currentStepPercent > 0 && (
-                                                <div className="w-full max-w-xs">
-                                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-primary transition-all"
-                                                            style={{
-                                                                width: `${selectedExperiment.currentStepPercent}%`,
-                                                            }}
-                                                        />
+                                            {selectedExperiment.currentStepPercent !==
+                                                undefined &&
+                                                selectedExperiment.currentStepPercent >
+                                                    0 && (
+                                                    <div className="w-full max-w-xs">
+                                                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full bg-primary transition-all"
+                                                                style={{
+                                                                    width: `${selectedExperiment.currentStepPercent}%`,
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground mt-2">
+                                                            {
+                                                                selectedExperiment.currentStepPercent
+                                                            }
+                                                            %
+                                                            {selectedExperiment.currentStepFrameCount && (
+                                                                <>
+                                                                    {" "}
+                                                                    - Frame{" "}
+                                                                    {
+                                                                        selectedExperiment.currentStepFrameCount
+                                                                    }
+                                                                </>
+                                                            )}
+                                                        </p>
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-2">
-                                                        {selectedExperiment.currentStepPercent}%
-                                                        {selectedExperiment.currentStepFrameCount && (
-                                                            <> - Frame {selectedExperiment.currentStepFrameCount}</>
-                                                        )}
-                                                    </p>
-                                                </div>
-                                            )}
+                                                )}
                                         </div>
                                     )}
                                     <div className="overflow-hidden rounded-lg border">

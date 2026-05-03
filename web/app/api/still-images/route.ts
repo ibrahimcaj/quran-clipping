@@ -43,10 +43,11 @@ function makeBlockDialogue(
     styleName: string,
     fontName: string,
     fontSize: number,
-    centerY: number,
+    posY: number,
+    anchor: number,
 ) {
     if (!text.length) return null;
-    return `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an5\\pos(${TEXT_CARD_SIZE / 2},${Math.round(centerY)})\\fn${fontName}\\fs${fontSize}}${escapeAss(text)}`;
+    return `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an${anchor}\\pos(${TEXT_CARD_SIZE / 2},${Math.round(posY)})\\fn${fontName}\\fs${fontSize}}${escapeAss(text)}`;
 }
 
 function makeAssCard(
@@ -72,10 +73,9 @@ function makeAssCard(
         ? titleHeight + lineSpacing + subtitleHeight
         : titleHeight;
     const groupTop = cy - groupHeight / 2;
-    const titleCenterY = subtitle ? groupTop + titleHeight / 2 : cy;
-    const subtitleCenterY = subtitle
-        ? groupTop + titleHeight + lineSpacing + subtitleHeight / 2
-        : cy;
+    const groupBottom = groupTop + groupHeight;
+    const titleTop = groupTop;
+    const subtitleBottom = groupBottom;
     const dialogues = subtitle
         ? [
               makeBlockDialogue(
@@ -83,14 +83,16 @@ function makeAssCard(
                   "Title",
                   "Geeza Pro",
                   titleFontSize,
-                  titleCenterY,
+                  titleTop,
+                  8,
               ),
               makeBlockDialogue(
                   subtitle,
                   "Sub",
                   "Arial",
                   subtitleFontSize,
-                  subtitleCenterY,
+                  subtitleBottom,
+                  2,
               ),
           ].filter((dialogue): dialogue is string => dialogue !== null)
         : [
@@ -99,7 +101,8 @@ function makeAssCard(
                   "Default",
                   "Geeza Pro",
                   titleFontSize,
-                  titleCenterY,
+                  cy,
+                  5,
               ),
           ].filter((dialogue): dialogue is string => dialogue !== null);
     return [

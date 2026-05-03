@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient } from "mongodb";
 import {
     getToken,
     getApiBase,
@@ -9,6 +8,25 @@ import {
 } from "@/lib/qf-token";
 import { getDb } from "@/lib/mongodb";
 import { getVerseDurationSeconds } from "@/lib/verse-utils";
+
+async function enrichWithTranslation<T extends Record<string, unknown>>(verse: T): Promise<T> {
+    const existing = (verse.translations as { text?: string }[] | undefined)?.[0]?.text;
+    if (existing) return verse;
+    try {
+        const res = await fetch(
+            `https://api.quran.com/api/v4/verses/by_key/${verse.verse_key}?translations=131`,
+        );
+        if (!res.ok) return verse;
+        const data = await res.json() as { verse?: { translations?: { text?: string }[] } };
+        const translation = data.verse?.translations?.[0]?.text;
+        if (translation) {
+            return { ...verse, translations: [{ resource_id: 131, text: translation }] };
+        }
+    } catch {
+        // leave verse as-is
+    }
+    return verse;
+}
 
 const DEFAULT_RECITATION = "7"; // Mishary Rashid Alafasy
 
@@ -352,8 +370,9 @@ export async function GET(req: NextRequest) {
                             verseLookupConfig.targetVerseNumber,
                 );
                 if (matchedVerse) {
+                    const enriched = await enrichWithTranslation(normalizeVerse(matchedVerse));
                     return NextResponse.json(
-                        { verse: normalizeVerse(matchedVerse) },
+                        { verse: enriched },
                         { status: 200 },
                     );
                 }
@@ -383,12 +402,14 @@ export async function GET(req: NextRequest) {
         };
 
         if (payload.verse) {
-            payload.verse = normalizeVerse(payload.verse);
+            payload.verse = await enrichWithTranslation(normalizeVerse(payload.verse));
         }
 
         if (Array.isArray(payload.verses)) {
-            payload.verses = payload.verses.map((verse) =>
-                normalizeVerse(verse),
+            payload.verses = await Promise.all(
+                payload.verses.map((verse) =>
+                    enrichWithTranslation(normalizeVerse(verse)),
+                ),
             );
         }
 

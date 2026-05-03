@@ -98,6 +98,7 @@ type VersePayload = {
     text_imlaei_simple?: string;
     words?: VerseWord[];
     audio?: { segments?: number[][] };
+    translations?: { resource_id?: number; text?: string }[];
 };
 
 type VideoDoc = {
@@ -1403,10 +1404,25 @@ async function main() {
                 });
             }
 
-            // get full verse translation for intelligent mapping
-            const fullTranslation =
-                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ??
-                "";
+            // get full verse translation — QF API may omit it, fall back to public Quran.com API
+            let fullTranslation =
+                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ?? "";
+            if (!fullTranslation) {
+                try {
+                    const fallbackRes = await fetch(
+                        `https://api.quran.com/api/v4/verses/by_key/${verseKey}?translations=131`,
+                    );
+                    const fallbackData = await fallbackRes.json() as {
+                        verse?: { translations?: { text?: string }[] };
+                    };
+                    fullTranslation =
+                        fallbackData.verse?.translations?.[0]?.text
+                            ?.replace(/<[^>]+>/g, "")
+                            .trim() ?? "";
+                } catch {
+                    // no fallback available
+                }
+            }
             await log(`Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 80)}..."`);
             const mappedSegments = fullTranslation
                 ? await mapTranslationsToSegments(arabicSegments, fullTranslation, log)

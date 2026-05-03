@@ -44,6 +44,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { OverlayBlendMode } from "@/lib/ffmpeg-experiments";
 import { AYAHS_PER_SURAH } from "@/lib/quran";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Progress } from "@/components/ui/progress";
 
 // Confirmed URL patterns from api.quran.com for each recitation ID.
 // IDs 6/11/12 use a separate everyayah mirror; all others use audio.qurancdn.com.
@@ -1442,6 +1443,17 @@ export function ClipsTab() {
                                                 )}
                                             >
                                                 {experiment.currentStep}
+                                                {isCancellable && experiment.currentStepPercent != null && experiment.currentStepPercent > 0 && (
+                                                    <div className="flex items-center gap-2 mt-1.5 max-w-xs">
+                                                        <Progress
+                                                            value={experiment.currentStepPercent}
+                                                            className="h-0.5 flex-1"
+                                                        />
+                                                        <span className="text-[10px] tabular-nums shrink-0">
+                                                            {experiment.currentStepPercent}%
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell className="py-3 text-sm text-muted-foreground">
                                                 <div className="min-w-0">

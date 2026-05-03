@@ -72,12 +72,18 @@ export async function POST(
         },
     );
 
+    let signalSent = false;
+    let signalTarget: "group" | "pid" | null = null;
     if (pid) {
         try {
             process.kill(-pid, "SIGTERM");
+            signalSent = true;
+            signalTarget = "group";
         } catch {
             try {
                 process.kill(pid, "SIGTERM");
+                signalSent = true;
+                signalTarget = "pid";
             } catch {
                 // process may already be gone
             }
@@ -85,5 +91,11 @@ export async function POST(
     }
 
     const updated = await db.collection("ffmpegExperiments").findOne({ _id });
-    return NextResponse.json({ ...updated, _id: updated?._id.toString() });
+    return NextResponse.json({
+        ...updated,
+        _id: updated?._id.toString(),
+        cancelSignalSent: signalSent,
+        cancelSignalTarget: signalTarget,
+        cancelWorkerPid: pid,
+    });
 }

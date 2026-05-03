@@ -163,6 +163,10 @@ export async function runAutoclip(): Promise<AutoclipRunResult> {
                 recitationId,
             ], { cwd: process.cwd(), env: process.env });
             logWorker(`job ${jobId} pipeline pid ${proc.pid ?? "unknown"}`);
+            void db?.collection("ffmpegExperiments").updateOne(
+                { _id: new ObjectId(experimentId) },
+                { $set: { workerPid: proc.pid ?? null, updatedAt: new Date() } },
+            );
             proc.on("error", reject);
             proc.on("close", (code) => {
                 logWorker(`job ${jobId} pipeline exited with code ${code}`);
@@ -170,6 +174,28 @@ export async function runAutoclip(): Promise<AutoclipRunResult> {
                 else reject(new Error(`pipeline exited with code ${code}`));
             });
         });
+
+        const completedExperiment = await db.collection("ffmpegExperiments").findOne({
+            _id: new ObjectId(experimentId),
+        });
+        if (completedExperiment?.status === "cancelled") {
+            await db.collection("autoclipJobs").updateOne(
+                { _id: jobId },
+                {
+                    $set: {
+                        status: "cancelled",
+                        cancelledAt: new Date(),
+                        updatedAt: new Date(),
+                    },
+                },
+            );
+            logWorker(`job ${jobId} will not upload because experiment ${experimentId} was cancelled`);
+            return {
+                status: "skipped",
+                jobId: jobId.toString(),
+                reason: "Experiment was cancelled before upload.",
+            };
+        }
 
         logWorker(`job ${jobId} starting upload for experiment ${experimentId}`);
         const uploadRes = await fetch(`${appBase}/api/ffmpeg/experiments/${experimentId}/upload`, {

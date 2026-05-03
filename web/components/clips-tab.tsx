@@ -1058,7 +1058,11 @@ export function ClipsTab() {
                     current ? { ...current, ...data } : current,
                 );
             }
-            toast.success("Experiment cancelled.");
+            if (data.cancelSignalSent) {
+                toast.success("Cancellation signal sent.");
+            } else {
+                toast.success("Experiment marked cancelled.");
+            }
         } catch (e) {
             toast.error(e instanceof Error ? e.message : String(e));
         } finally {

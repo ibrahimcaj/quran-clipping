@@ -1407,11 +1407,18 @@ async function main() {
             const fullTranslation =
                 verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ??
                 "";
+            await log(`Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 80)}..."`);
             const mappedSegments = fullTranslation
-                ? await mapTranslationsToSegments(
-                      arabicSegments,
-                      fullTranslation,
-                  ).catch(() => null)
+                ? await mapTranslationsToSegments(arabicSegments, fullTranslation, log)
+                      .then((segments) => {
+                          log(`Gemini: mapped ${segments.length} segments successfully`);
+                          segments.forEach((s, i) => log(`Gemini segment ${i + 1}: "${s.arabicText}" → "${s.englishTranslation}"`));
+                          return segments;
+                      })
+                      .catch(async (err) => {
+                          await log(`Gemini: failed - ${err instanceof Error ? err.message : String(err)}, falling back to segment translations`);
+                          return null;
+                      })
                 : null;
 
             const pairs: {

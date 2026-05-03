@@ -40,6 +40,7 @@ function blockHeight(
     const lines = countLines(text);
     if (!lines) return 0;
     const scaledFontSize = fontSize * (scaleY / 100);
+    // lineSpacing controls spacing within each multiline block.
     const lineStep = scaledFontSize + lineSpacing;
     return lines * lineStep - lineSpacing;
 }
@@ -89,12 +90,14 @@ function makeAssCard(
         scaleY,
     );
     const hasSubtitle = subtitle.trim().length > 0;
+    // The same lineSpacing also controls the gap between title and subtitle.
+    const blockGap = lineSpacing;
     const groupHeight = hasSubtitle
-        ? titleHeight + lineSpacing + subtitleHeight
+        ? titleHeight + blockGap + subtitleHeight
         : titleHeight;
     const groupTop = cy - groupHeight / 2;
     const titleTop = groupTop;
-    const subtitleTop = groupTop + titleHeight + lineSpacing;
+    const subtitleTop = groupTop + titleHeight + blockGap;
     const dialogues = hasSubtitle
         ? [
               ...makeLineDialogues(

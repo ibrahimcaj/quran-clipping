@@ -41,19 +41,33 @@ async function runAutoclipJob(
             );
 
         const verse = await (async () => {
+            const reciterCfg = await db.collection("configuration").findOne({ type: "reciters" }) as {
+                enabledIds?: (string | number)[];
+            } | null;
+
+            const enabledIds = Array.isArray(reciterCfg?.enabledIds) && reciterCfg.enabledIds.length > 0
+                ? reciterCfg.enabledIds.map(String)
+                : ["7"];
+            const recitationId = enabledIds[Math.floor(Math.random() * enabledIds.length)];
+
             const res = await fetch(
-                `https://api.quran.com/api/v4/verses/random?recitation=7&words=true&translations=131&word_fields=text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1`,
+                `https://api.quran.com/api/v4/verses/random?recitation=${recitationId}&words=true&translations=131&word_fields=text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1`,
                 { signal },
             );
             const data = (await res.json()) as {
                 verse?: Record<string, unknown>;
             };
-            return data.verse;
+            return { verse: data.verse, recitationId };
         })();
 
-        if (!verse || typeof verse.verse_key !== "string") {
+        if (!verse.verse || typeof verse.verse.verse_key !== "string") {
             throw new Error("Failed to fetch verse");
         }
+
+        const videoCfg = await db.collection("configuration").findOne({ type: "video" }) as {
+            overlayId?: string;
+            overlayBlendMode?: string;
+        } | null;
 
         const videos = await db
             .collection("videos")
@@ -64,17 +78,20 @@ async function runAutoclipJob(
         if (!videos.length) throw new Error("No videos available");
 
         const videoId = (videos[0]._id as ObjectId).toString();
-        const verseKey = verse.verse_key as string;
+        const verseKey = verse.verse.verse_key as string;
+        const recitationId = verse.recitationId;
         const experimentId = new ObjectId().toString();
 
         const experiment = {
             _id: new ObjectId(experimentId),
             verseKey,
-            recitationId: "7",
+            recitationId,
             sourceVideoIds: [videoId],
             sourceVideoNames: [
                 (videos[0].originalFilename as string) ?? "video",
             ],
+            overlayId: videoCfg?.overlayId ?? null,
+            overlayBlendMode: videoCfg?.overlayBlendMode ?? null,
             status: "queued",
             currentStep: "Queued",
             logs: [
@@ -98,7 +115,7 @@ async function runAutoclipJob(
                 "pipeline",
                 videoId,
                 verseKey,
-                "7",
+                recitationId,
             ]);
             proc.on("error", reject);
             proc.on("close", (code) => {

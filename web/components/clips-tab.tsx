@@ -1609,7 +1609,7 @@ export function ClipsTab() {
                                             disk after one hour.
                                         </div>
                                     ) : (
-                                        <div className="flex min-h-64 items-center justify-center rounded-lg border bg-muted/30 text-sm text-muted-foreground">
+                                        <div className="flex min-h-64 items-center justify-center rounded-lg border bg-muted/30 px-6 text-center text-sm text-muted-foreground">
                                             {selectedExperiment.currentStep}
                                         </div>
                                     )}

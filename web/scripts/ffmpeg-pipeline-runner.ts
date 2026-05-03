@@ -959,7 +959,7 @@ async function main() {
             throw new Error("No valid videos available");
         }
         const maxCoverageSeconds = timedVideos.reduce(
-            (sum, video) => sum + Math.min(video.durationSeconds, 5),
+            (sum, video) => sum + Math.min(video.durationSeconds, maxVideoClipSeconds),
             0,
         );
         await log(
@@ -1062,7 +1062,7 @@ async function main() {
         await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
 
         await setStep("Choose random video sequence");
-        const sequence = buildVideoSequence(timedVideos, targetSeconds + clipTailSeconds);
+        const sequence = buildVideoSequence(timedVideos, targetSeconds + clipTailSeconds, maxVideoClipSeconds);
         await log(
             `Sequence: ${sequence
                 .map(
@@ -1157,8 +1157,7 @@ async function main() {
                 await log(
                     `Preparing square master for ${segment.originalFilename}`,
                 );
-                await runProcess(
-                    "ffmpeg",
+                await runFfmpegWithProgress(
                     [
                         "-y",
                         "-i",
@@ -1177,6 +1176,7 @@ async function main() {
                         segment.preparedPath,
                     ],
                     log,
+                    setProgress,
                 );
             }
             if (!preparedDurations.has(segment.preparedPath)) {
@@ -1220,8 +1220,7 @@ async function main() {
             "utf8",
         );
 
-        await runProcess(
-            "ffmpeg",
+        await runFfmpegWithProgress(
             [
                 "-y",
                 "-f",
@@ -1231,7 +1230,7 @@ async function main() {
                 "-i",
                 paths.concatList,
                 "-t",
-                targetSeconds.toFixed(3),
+                (targetSeconds + clipTailSeconds).toFixed(3),
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -1244,14 +1243,14 @@ async function main() {
                 paths.stitched,
             ],
             log,
+            setProgress,
         );
 
         let currentVideo = paths.stitched;
 
         if (lutPath) {
             await setStep("Apply LUT");
-            await runProcess(
-                "ffmpeg",
+            await runFfmpegWithProgress(
                 [
                     "-y",
                     "-i",
@@ -1270,6 +1269,7 @@ async function main() {
                     paths.lutted,
                 ],
                 log,
+                setProgress,
             );
             currentVideo = paths.lutted;
         }
@@ -1304,8 +1304,7 @@ async function main() {
 
         if (postFilters.length > 0) {
             await setStep("Apply post-processing");
-            await runProcess(
-                "ffmpeg",
+            await runFfmpegWithProgress(
                 [
                     "-y",
                     "-i",
@@ -1324,6 +1323,7 @@ async function main() {
                     paths.postprocessed,
                 ],
                 log,
+                setProgress,
             );
             currentVideo = paths.postprocessed;
         }
@@ -1471,8 +1471,7 @@ async function main() {
                 prevStream = outStream;
             }
 
-            await runProcess(
-                "ffmpeg",
+            await runFfmpegWithProgress(
                 [
                     ...ffArgs,
                     "-filter_complex",
@@ -1491,9 +1490,7 @@ async function main() {
                     paths.textOverlaid,
                 ],
                 log,
-                async (progress) => {
-                    await setProgress({ ...progress, totalSeconds: targetSeconds });
-                },
+                setProgress,
             );
 
             for (let i = 0; i < pngPaths.length; i += 1) {
@@ -1514,8 +1511,7 @@ async function main() {
                 overlayBlendMode && overlayBlendMode !== "normal"
                     ? `[1:v]${overlayScale},format=gbrp[ovr];[0:v]format=gbrp[base];[base][ovr]blend=all_mode=${overlayBlendMode}[vout]`
                     : `[1:v]${overlayScale}[ovr];[0:v][ovr]overlay=0:0:eof_action=pass[vout]`;
-            await runProcess(
-                "ffmpeg",
+            await runFfmpegWithProgress(
                 [
                     "-y",
                     "-i",
@@ -1540,6 +1536,7 @@ async function main() {
                     paths.overlaid,
                 ],
                 log,
+                setProgress,
             );
             currentVideo = paths.overlaid;
         }
@@ -1554,8 +1551,7 @@ async function main() {
                 clipTailSeconds > 0
                     ? ["-filter_complex", `[1:a]apad=pad_dur=${clipTailSeconds.toFixed(3)}[a]`, "-map", "0:v:0", "-map", "[a]"]
                     : ["-map", "0:v:0", "-map", "1:a:0"];
-            await runProcess(
-                "ffmpeg",
+            await runFfmpegWithProgress(
                 [
                     "-y",
                     "-i", currentVideo,
@@ -1567,6 +1563,7 @@ async function main() {
                     finalPath,
                 ],
                 log,
+                setProgress,
             );
         } else {
             fs.copyFileSync(currentVideo, finalPath);

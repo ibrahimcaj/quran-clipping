@@ -82,6 +82,7 @@ async function runAutoclip() {
         const experimentId = new ObjectId().toString();
         await db.collection("ffmpegExperiments").insertOne({
             _id: new ObjectId(experimentId),
+            operation: "mix_random_verse",
             verseKey,
             recitationId,
             sourceVideoIds: [videoId],

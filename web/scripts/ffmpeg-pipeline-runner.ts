@@ -1114,8 +1114,14 @@ async function main() {
             | string
             | null
             | undefined;
-        const requiresSelectedVerse =
-            experiment.operation === "mix_random_verse";
+        const operation =
+            experiment.operation === "mix_random_verse" ||
+            (!experiment.operation &&
+                existingVerseKey &&
+                existingRecitationId)
+                ? "mix_random_verse"
+                : "pipeline";
+        const requiresSelectedVerse = operation === "mix_random_verse";
 
         if (
             (existingVerseKey && !existingRecitationId) ||
@@ -1843,7 +1849,7 @@ async function main() {
             currentVideo = paths.overlaid;
         }
 
-        if (experiment.operation === "mix_random_verse") {
+        if (operation === "mix_random_verse") {
             await setStep("Merge Quran audio");
             const audioInputArgs =
                 audioLeadSeconds > 0
@@ -1892,6 +1898,7 @@ async function main() {
             { _id: currentId },
             {
                 $set: {
+                    operation,
                     status: "completed",
                     currentStep: "Complete",
                     updatedAt: new Date(),

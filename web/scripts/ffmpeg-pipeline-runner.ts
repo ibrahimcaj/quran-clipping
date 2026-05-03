@@ -691,7 +691,7 @@ function formatAssTimestamp(seconds: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
-function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11): string {
+function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11, scaleX = 100, scaleY = 100): string {
     // single middle-center dialogue so the whole block is treated as one unit
     const text = english
         ? `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}\\N{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`
@@ -706,7 +706,7 @@ function createAssCard(arabic: string, english: string, size: number, titleFontS
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        `Style: Default,Geeza Pro,36,&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,-2,0,1,0,0,5,0,0,0,1`,
+        `Style: Default,Geeza Pro,36,&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0,5,0,0,0,1`,
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -748,13 +748,15 @@ async function renderSubtitleCardPngBatch(
         outputPath: string;
         titleFontSize?: number;
         subtitleFontSize?: number;
+        scaleX?: number;
+        scaleY?: number;
     }[],
     log: (msg: string) => Promise<void>,
 ) {
     for (const card of cards) {
         fs.writeFileSync(
             card.assPath,
-            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE, card.titleFontSize, card.subtitleFontSize),
+            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE, card.titleFontSize, card.subtitleFontSize, card.scaleX, card.scaleY),
             "utf8",
         );
     }
@@ -1330,7 +1332,7 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const textOverride = experiment.textOverride as { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number } | null | undefined;
+        const textOverride = experiment.textOverride as { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number; scaleX?: number; scaleY?: number } | null | undefined;
 
         if (textOverride?.title) {
             await setStep("Render text card overlay");
@@ -1341,6 +1343,8 @@ async function main() {
                 english: textOverride.subtitle ?? "",
                 titleFontSize: textOverride.titleFontSize ?? 36,
                 subtitleFontSize: textOverride.subtitleFontSize ?? 11,
+                scaleX: textOverride.scaleX ?? 100,
+                scaleY: textOverride.scaleY ?? 100,
                 assPath,
                 outputPath: pngPath,
             }], log);

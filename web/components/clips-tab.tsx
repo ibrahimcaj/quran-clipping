@@ -554,12 +554,14 @@ export function ClipsTab() {
     const [selectedSavedAyahId, setSelectedSavedAyahId] = useState("");
     const [savingAyah, setSavingAyah] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [textOverride, setTextOverride] = useState<{ title: string; subtitle: string; titleFontSize: number; subtitleFontSize: number } | null>(null);
+    const [textOverride, setTextOverride] = useState<{ title: string; subtitle: string; titleFontSize: number; subtitleFontSize: number; scaleX: number; scaleY: number } | null>(null);
     const [textOverrideOpen, setTextOverrideOpen] = useState(false);
     const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
     const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] = useState("");
     const [textOverrideDraftTitleFontSize, setTextOverrideDraftTitleFontSize] = useState(36);
     const [textOverrideDraftSubtitleFontSize, setTextOverrideDraftSubtitleFontSize] = useState(11);
+    const [textOverrideDraftScaleX, setTextOverrideDraftScaleX] = useState(100);
+    const [textOverrideDraftScaleY, setTextOverrideDraftScaleY] = useState(100);
 
     useEffect(() => {
         async function loadAssets() {
@@ -844,6 +846,8 @@ export function ClipsTab() {
         setTextOverrideDraftSubtitle(textOverride?.subtitle ?? "");
         setTextOverrideDraftTitleFontSize(textOverride?.titleFontSize ?? 36);
         setTextOverrideDraftSubtitleFontSize(textOverride?.subtitleFontSize ?? 11);
+        setTextOverrideDraftScaleX(textOverride?.scaleX ?? 100);
+        setTextOverrideDraftScaleY(textOverride?.scaleY ?? 100);
         setTextOverrideOpen(true);
     }
 
@@ -854,6 +858,8 @@ export function ClipsTab() {
             subtitle: textOverrideDraftSubtitle.trim(),
             titleFontSize: textOverrideDraftTitleFontSize,
             subtitleFontSize: textOverrideDraftSubtitleFontSize,
+            scaleX: textOverrideDraftScaleX,
+            scaleY: textOverrideDraftScaleY,
         } : null);
         setTextOverrideOpen(false);
     }
@@ -1681,6 +1687,30 @@ export function ClipsTab() {
                                     step={1}
                                     value={textOverrideDraftSubtitleFontSize}
                                     onChange={(e) => setTextOverrideDraftSubtitleFontSize(Number(e.target.value) || 11)}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Scale X (%)</Label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={500}
+                                    step={1}
+                                    value={textOverrideDraftScaleX}
+                                    onChange={(e) => setTextOverrideDraftScaleX(Number(e.target.value) || 100)}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Scale Y (%)</Label>
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={500}
+                                    step={1}
+                                    value={textOverrideDraftScaleY}
+                                    onChange={(e) => setTextOverrideDraftScaleY(Number(e.target.value) || 100)}
                                 />
                             </div>
                         </div>

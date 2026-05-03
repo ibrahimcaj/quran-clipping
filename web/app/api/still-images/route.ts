@@ -32,6 +32,8 @@ function makeAssCard(
     subtitle: string,
     titleFontSize: number,
     subtitleFontSize: number,
+    scaleX = 100,
+    scaleY = 100,
 ): string {
     // single middle-center dialogue so the whole block is treated as one unit
     const text = subtitle
@@ -47,7 +49,7 @@ function makeAssCard(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        `Style: Default,Geeza Pro,${titleFontSize},&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,-2,0,1,0,0,5,0,0,0,1`,
+        `Style: Default,Geeza Pro,${titleFontSize},&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0,5,0,0,0,1`,
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -109,6 +111,8 @@ export async function POST(req: NextRequest) {
             subtitle = "",
             titleFontSize = 32,
             subtitleFontSize = 14,
+            scaleX = 100,
+            scaleY = 100,
             vignette,
             exposure,
             saturation,
@@ -121,12 +125,16 @@ export async function POST(req: NextRequest) {
             subtitle?: string;
             titleFontSize?: number;
             subtitleFontSize?: number;
+            scaleX?: number;
+            scaleY?: number;
             vignette?: number;
             exposure?: number;
             saturation?: number;
             overlayId?: string | null;
             overlayBlendMode?: OverlayBlendMode | null;
         };
+        const safeScaleX = Math.max(1, Math.min(500, Math.round(scaleX)));
+        const safeScaleY = Math.max(1, Math.min(500, Math.round(scaleY)));
         const safeTitleFontSize = Math.max(
             8,
             Math.min(200, Math.round(titleFontSize)),
@@ -268,6 +276,8 @@ export async function POST(req: NextRequest) {
                 subtitle,
                 safeTitleFontSize,
                 safeSubtitleFontSize,
+                safeScaleX,
+                safeScaleY,
             ),
             "utf8",
         );

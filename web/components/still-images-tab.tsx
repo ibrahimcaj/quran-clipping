@@ -37,6 +37,8 @@ export function StillImagesTab() {
     const [subtitle, setSubtitle] = useState("");
     const [titleFontSize, setTitleFontSize] = useState(32);
     const [subtitleFontSize, setSubtitleFontSize] = useState(14);
+    const [scaleX, setScaleX] = useState(100);
+    const [scaleY, setScaleY] = useState(100);
     const [vignette, setVignette] = useState(0);
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);
@@ -95,6 +97,8 @@ export function StillImagesTab() {
                     subtitle,
                     titleFontSize,
                     subtitleFontSize,
+                    scaleX,
+                    scaleY,
                     vignette,
                     exposure,
                     saturation,
@@ -218,6 +222,30 @@ export function StillImagesTab() {
                                 step={1}
                                 value={subtitleFontSize}
                                 onChange={e => setSubtitleFontSize(Number(e.target.value) || 14)}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Scale X (%)</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={500}
+                                step={1}
+                                value={scaleX}
+                                onChange={e => setScaleX(Number(e.target.value) || 100)}
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Scale Y (%)</Label>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={500}
+                                step={1}
+                                value={scaleY}
+                                onChange={e => setScaleY(Number(e.target.value) || 100)}
                             />
                         </div>
                     </div>

@@ -976,6 +976,10 @@ async function main() {
             typeof videoConfigDoc?.randomAyahMaxSeconds === "number"
                 ? videoConfigDoc.randomAyahMaxSeconds
                 : 30;
+        const clipTailSeconds =
+            typeof videoConfigDoc?.clipTailSeconds === "number"
+                ? videoConfigDoc.clipTailSeconds
+                : 0;
 
         let verse: VersePayload;
         let targetSeconds: number;
@@ -1281,10 +1285,6 @@ async function main() {
             typeof videoConfigDoc?.audioLeadSeconds === "number"
                 ? videoConfigDoc.audioLeadSeconds
                 : 1.5;
-        const clipTailSeconds =
-            typeof videoConfigDoc?.clipTailSeconds === "number"
-                ? videoConfigDoc.clipTailSeconds
-                : 0;
         const postFilters: string[] = [
             `scale=${VIDEO_PIXELATE_SIZE}:${VIDEO_PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor`,
         ];

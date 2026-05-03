@@ -129,6 +129,7 @@ export function SettingsTab() {
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);
     const [audioLeadSeconds, setAudioLeadSeconds] = useState(1.5);
+    const [clipTailSeconds, setClipTailSeconds] = useState(0);
     const [randomAyahMinSeconds, setRandomAyahMinSeconds] = useState(0);
     const [randomAyahMaxSeconds, setRandomAyahMaxSeconds] = useState(30);
     const [uploadCaptionTemplate, setUploadCaptionTemplate] = useState(
@@ -195,6 +196,11 @@ export function SettingsTab() {
                         ? videoCfg.audioLeadSeconds
                         : 1.5,
                 );
+                setClipTailSeconds(
+                    typeof videoCfg.clipTailSeconds === "number"
+                        ? videoCfg.clipTailSeconds
+                        : 0,
+                );
                 setRandomAyahMinSeconds(
                     typeof videoCfg.randomAyahMinSeconds === "number"
                         ? videoCfg.randomAyahMinSeconds
@@ -239,6 +245,7 @@ export function SettingsTab() {
             exposure?: number;
             saturation?: number;
             audioLeadSeconds?: number;
+            clipTailSeconds?: number;
             randomAyahMinSeconds?: number;
             randomAyahMaxSeconds?: number;
             overlayId?: string | null;
@@ -467,6 +474,36 @@ export function SettingsTab() {
                                             saveVideoConfig({
                                                 audioLeadSeconds: next,
                                             });
+                                        }}
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Clip tail
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Silence added after the recitation ends, extending the clip.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                        {clipTailSeconds.toFixed(1)}s
+                                    </span>
+                                    <Slider
+                                        min={0}
+                                        max={10}
+                                        step={0.5}
+                                        value={[clipTailSeconds]}
+                                        onValueChange={(v) => {
+                                            const next = Array.isArray(v) ? (v[0] ?? 0) : v;
+                                            setClipTailSeconds(next);
+                                            saveVideoConfig({ clipTailSeconds: next });
                                         }}
                                     />
                                 </div>

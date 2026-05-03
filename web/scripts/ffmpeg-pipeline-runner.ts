@@ -1113,7 +1113,7 @@ async function main() {
         await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
 
         await setStep("Choose random video sequence");
-        const sequence = buildVideoSequence(timedVideos, targetSeconds);
+        const sequence = buildVideoSequence(timedVideos, targetSeconds + clipTailSeconds);
         await log(
             `Sequence: ${sequence
                 .map(
@@ -1341,6 +1341,10 @@ async function main() {
             typeof videoConfigDoc?.audioLeadSeconds === "number"
                 ? videoConfigDoc.audioLeadSeconds
                 : 1.5;
+        const clipTailSeconds =
+            typeof videoConfigDoc?.clipTailSeconds === "number"
+                ? videoConfigDoc.clipTailSeconds
+                : 0;
         const postFilters: string[] = [
             `scale=${VIDEO_PIXELATE_SIZE}:${VIDEO_PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor`,
         ];
@@ -1599,28 +1603,21 @@ async function main() {
             await setStep("Merge Quran audio");
             const audioInputArgs =
                 audioLeadSeconds > 0
-                    ? [
-                          "-ss",
-                          audioLeadSeconds.toFixed(3),
-                          "-i",
-                          paths.verseAudio,
-                      ]
+                    ? ["-ss", audioLeadSeconds.toFixed(3), "-i", paths.verseAudio]
                     : ["-i", paths.verseAudio];
+            const audioMapArgs =
+                clipTailSeconds > 0
+                    ? ["-filter_complex", `[1:a]apad=pad_dur=${clipTailSeconds.toFixed(3)}[a]`, "-map", "0:v:0", "-map", "[a]"]
+                    : ["-map", "0:v:0", "-map", "1:a:0"];
             await runProcess(
                 "ffmpeg",
                 [
                     "-y",
-                    "-i",
-                    currentVideo,
+                    "-i", currentVideo,
                     ...audioInputArgs,
-                    "-map",
-                    "0:v:0",
-                    "-map",
-                    "1:a:0",
-                    "-c:v",
-                    "copy",
-                    "-c:a",
-                    "aac",
+                    ...audioMapArgs,
+                    "-c:v", "copy",
+                    "-c:a", "aac",
                     "-shortest",
                     finalPath,
                 ],

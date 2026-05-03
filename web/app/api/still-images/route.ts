@@ -48,11 +48,11 @@ function makeAssCard(
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
     const dialogues = subtitle
         ? [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\an2\pos(${cy},${topY})\fnGeeza Pro\fs${titleFontSize}}${escapeAss(title)}`,
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\an8\pos(${cy},${bottomY})\fnArial\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\an2\\pos(${cy},${topY})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\an8\\pos(${cy},${bottomY})\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
           ]
         : [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an5\pos(${cy},${cy})\fnGeeza Pro\fs${titleFontSize}}${escapeAss(title)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an5\\pos(${cy},${cy})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
           ];
     return [
         "[Script Info]",

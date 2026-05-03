@@ -135,30 +135,8 @@ const TEXT_PAIR_TAIL_SECONDS = 0.08;
 const TEXT_PAIR_MIN_SECONDS = 0.35;
 const TEXT_PAIR_GAP_SECONDS = 0.02;
 
-const OAUTH_BASE = {
-    prelive: "https://prelive-oauth2.quran.foundation",
-    production: "https://oauth2.quran.foundation",
-} as const;
-
-const API_BASE = {
-    prelive: "https://apis-prelive.quran.foundation",
-    production: "https://apis.quran.foundation",
-} as const;
-
 function ensureDir(dir: string) {
     fs.mkdirSync(dir, { recursive: true });
-}
-
-function qfEnv(): keyof typeof OAUTH_BASE {
-    return process.env.QF_ENV === "production" ? "production" : "prelive";
-}
-
-function getApiBase() {
-    return API_BASE[qfEnv()];
-}
-
-function getClientId() {
-    return process.env.QF_CLIENT_ID ?? "";
 }
 
 function createExperimentOutputPaths(experimentId: string) {
@@ -345,35 +323,6 @@ async function runFfmpegWithProgress(
     );
 }
 
-async function fetchToken() {
-    const clientId = process.env.QF_CLIENT_ID;
-    const clientSecret = process.env.QF_CLIENT_SECRET;
-    if (!clientId || !clientSecret) {
-        throw new Error("QF_CLIENT_ID and QF_CLIENT_SECRET must be set");
-    }
-
-    const creds = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-    const res = await fetch(`${OAUTH_BASE[qfEnv()]}/oauth2/token`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Authorization: `Basic ${creds}`,
-        },
-        body: new URLSearchParams({
-            grant_type: "client_credentials",
-            scope: "content",
-        }),
-    });
-
-    if (!res.ok) {
-        throw new Error(
-            `QF token request failed: ${res.status} ${await res.text()}`,
-        );
-    }
-
-    const data = (await res.json()) as { access_token: string };
-    return data.access_token;
-}
 
 function verseAudioUrl(verseKey: string, recitationId: string) {
     const entry = RECITER_PATHS[recitationId];
@@ -394,14 +343,17 @@ async function downloadFile(url: string, filePath: string) {
     fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
 }
 
-async function fetchVerse(endpoint: string): Promise<VersePayload> {
-    const token = await fetchToken();
-    const response = await fetch(endpoint, {
-        headers: {
-            "x-auth-token": token,
-            "x-client-id": getClientId(),
-        },
-    });
+function getAppBase() {
+    return (
+        process.env.NEXT_PUBLIC_APP_URL ||
+        `http://${process.env.HOST ?? "localhost"}:${process.env.PORT ?? 3000}`
+    );
+}
+
+// routes through our Next.js API so translations are always included
+async function fetchVerseFromApi(params: Record<string, string>): Promise<VersePayload> {
+    const url = `${getAppBase()}/api/qf/verses?${new URLSearchParams(params)}`;
+    const response = await fetch(url);
     const text = await response.text();
     const data = JSON.parse(text) as { verse?: VersePayload; error?: string };
     if (!response.ok || !data.verse) {
@@ -410,27 +362,15 @@ async function fetchVerse(endpoint: string): Promise<VersePayload> {
     return data.verse;
 }
 
-function verseEndpoint(path: string, recitationId: string) {
-    const params = new URLSearchParams({
-        words: "true",
-        audio: recitationId,
-        translations: "20",
-        fields: "text_uthmani,text_imlaei,text_imlaei_simple,verse_key",
-        word_fields:
-            "text_uthmani,text_imlaei,text_imlaei_simple,translation,code_v1",
-    });
-    return `${getApiBase()}/content/api/v4/verses/${path}?${params.toString()}`;
-}
-
 async function getRandomVerse(recitationId: string): Promise<VersePayload> {
-    return fetchVerse(verseEndpoint("random", recitationId));
+    return fetchVerseFromApi({ random: "true", recitation: recitationId });
 }
 
 async function getVerseByKey(
     verseKey: string,
     recitationId: string,
 ): Promise<VersePayload> {
-    return fetchVerse(verseEndpoint(`by_key/${verseKey}`, recitationId));
+    return fetchVerseFromApi({ verse_key: verseKey, recitation: recitationId });
 }
 
 async function selectRenderableVerse(
@@ -1411,7 +1351,7 @@ async function main() {
             // get full verse translation — QF API may omit it, fall back to public Quran.com API
             let fullTranslation =
                 verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ?? "";
-            await log(`Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 80)}..."`);
+            await log(`Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 120)}"`);
             const mappedSegments = fullTranslation
                 ? await mapTranslationsToSegments(arabicSegments, fullTranslation, log)
                       .then((segments) => {

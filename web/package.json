@@ -15,6 +15,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@genkit-ai/google-genai": "^1.33.0",
+    "@google/generative-ai": "^0.24.1",
     "@tanstack/react-table": "^8.21.3",
     "@twemoji/parser": "^17.0.1",
     "class-variance-authority": "^0.7.1",

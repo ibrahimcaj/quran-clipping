@@ -1,13 +1,4 @@
-import { genkit } from "genkit";
-import { googleAI } from "@genkit-ai/google-genai";
-
-const ai = genkit({
-    plugins: [
-        googleAI({
-            apiKey: process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY,
-        }),
-    ],
-});
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export interface ArabicSegment {
     text: string;
@@ -25,6 +16,9 @@ export async function mapTranslationsToSegments(
     fullEnglishTranslation: string,
     log?: (msg: string) => Promise<void> | void,
 ): Promise<MappedSegment[]> {
+    const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
+
     const segmentsJson = JSON.stringify(arabicSegments.map((s) => s.text));
 
     const prompt = `I am creating a video with a maximum of 2 Arabic words on screen at a time. I have the original Arabic segments and the full idiomatic English translation.
@@ -45,12 +39,11 @@ Rules:
 
 Respond ONLY with a valid JSON array (no markdown, no explanation). Each element has {"arabic": "segment text", "english": "translation"}:`;
 
-    const result = await ai.generate({
-        model: googleAI.model("gemini-2.5-flash"),
-        prompt,
-    });
+    const genai = new GoogleGenerativeAI(apiKey);
+    const model = genai.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().trim();
 
-    const responseText = result.text.trim();
     await log?.(`Gemini raw response: ${responseText.substring(0, 200)}`);
 
     const jsonText = responseText.replace(/```json\n?|\n?```/g, "").trim();

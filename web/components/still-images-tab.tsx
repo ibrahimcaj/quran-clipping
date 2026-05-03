@@ -37,8 +37,9 @@ export function StillImagesTab() {
     const [subtitle, setSubtitle] = useState("");
     const [titleFontSize, setTitleFontSize] = useState(32);
     const [subtitleFontSize, setSubtitleFontSize] = useState(14);
-    const [scaleX, setScaleX] = useState(100);
-    const [scaleY, setScaleY] = useState(100);
+    const [scaleX, setScaleX] = useState(80);
+    const [scaleY, setScaleY] = useState(125);
+    const [lineSpacing, setLineSpacing] = useState(8);
     const [vignette, setVignette] = useState(0);
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);
@@ -99,6 +100,7 @@ export function StillImagesTab() {
                     subtitleFontSize,
                     scaleX,
                     scaleY,
+                    lineSpacing,
                     vignette,
                     exposure,
                     saturation,
@@ -225,7 +227,7 @@ export function StillImagesTab() {
                             />
                         </div>
                     </div>
-                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-3">
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Scale X (%)</Label>
                             <Input
@@ -246,6 +248,17 @@ export function StillImagesTab() {
                                 step={1}
                                 value={scaleY}
                                 onChange={e => setScaleY(Number(e.target.value) || 100)}
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Line spacing</Label>
+                            <Input
+                                type="number"
+                                min={-100}
+                                max={200}
+                                step={1}
+                                value={lineSpacing}
+                                onChange={e => setLineSpacing(Number(e.target.value))}
                             />
                         </div>
                     </div>

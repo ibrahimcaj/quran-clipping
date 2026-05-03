@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
             subtitleFontSize?: number;
             scaleX?: number;
             scaleY?: number;
+            lineSpacing?: number;
             vignette?: number;
             exposure?: number;
             saturation?: number;
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
         };
         const safeScaleX = Math.max(1, Math.min(500, Math.round(scaleX)));
         const safeScaleY = Math.max(1, Math.min(500, Math.round(scaleY)));
+        const safeLineSpacing = Math.max(-100, Math.min(200, Math.round(lineSpacing)));
         const safeTitleFontSize = Math.max(
             8,
             Math.min(200, Math.round(titleFontSize)),
@@ -287,6 +289,7 @@ export async function POST(req: NextRequest) {
                 safeSubtitleFontSize,
                 safeScaleX,
                 safeScaleY,
+                safeLineSpacing,
             ),
             "utf8",
         );

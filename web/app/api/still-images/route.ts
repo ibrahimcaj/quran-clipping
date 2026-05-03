@@ -37,21 +37,22 @@ function makeAssCard(
     lineSpacing = 8,
 ): string {
     const cy = TEXT_CARD_SIZE / 2;
-    const marginV = Math.round(cy + lineSpacing / 2);
+    const topY = Math.round(cy - lineSpacing / 2);
+    const bottomY = Math.round(cy + lineSpacing / 2);
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const styles = subtitle
         ? [
-              `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
-              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
+              `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,0,1`,
+              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
     const dialogues = subtitle
         ? [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,${marginV},,{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\an2\pos(${cy},${topY})\fnGeeza Pro\fs${titleFontSize}}${escapeAss(title)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\an8\pos(${cy},${bottomY})\fnArial\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
           ]
         : [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\an5\pos(${cy},${cy})\fnGeeza Pro\fs${titleFontSize}}${escapeAss(title)}`,
           ];
     return [
         "[Script Info]",

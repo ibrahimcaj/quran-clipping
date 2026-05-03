@@ -4,11 +4,7 @@ import { createRequire } from "module";
 import { spawn } from "child_process";
 import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
-import {
-    EXPERIMENTS_DIR,
-    PREPARED_VIDEOS_DIR,
-    safeSlug,
-} from "../lib/storage";
+import { EXPERIMENTS_DIR, PREPARED_VIDEOS_DIR, safeSlug } from "../lib/storage";
 import { mapTranslationsToSegments } from "../lib/translation-mapper";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
@@ -912,7 +908,10 @@ async function main() {
                 "Experiment has incomplete verse selection metadata",
             );
         }
-        if (requiresSelectedVerse && (!existingVerseKey || !existingRecitationId)) {
+        if (
+            requiresSelectedVerse &&
+            (!existingVerseKey || !existingRecitationId)
+        ) {
             throw new Error(
                 "This experiment requires the verse selected in the UI; no verse was stored on the job",
             );
@@ -1298,7 +1297,9 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const rawWords = [...(verse.words ?? [])].sort((a, b) => a.position - b.position);
+        const rawWords = [...(verse.words ?? [])].sort(
+            (a, b) => a.position - b.position,
+        );
         const timedWords = mergeSegmentTimings(rawWords, verse.audio?.segments);
         const textWords = timedWords.filter(
             (w) => w.char_type_name === "word" && getOverlayWordText(w),
@@ -1312,14 +1313,24 @@ async function main() {
             const arabicSegments = [];
             for (let i = 0; i < textWords.length; i += 2) {
                 const chunk = textWords.slice(i, i + 2);
-                const arabicText = chunk.map((w) => getOverlayWordText(w)).join(" ");
-                arabicSegments.push({ text: arabicText, position: Math.floor(i / 2) });
+                const arabicText = chunk
+                    .map((w) => getOverlayWordText(w))
+                    .join(" ");
+                arabicSegments.push({
+                    text: arabicText,
+                    position: Math.floor(i / 2),
+                });
             }
 
             // get full verse translation for intelligent mapping
-            const fullTranslation = verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ?? "";
+            const fullTranslation =
+                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ??
+                "";
             const mappedSegments = fullTranslation
-                ? await mapTranslationsToSegments(arabicSegments, fullTranslation).catch(() => null)
+                ? await mapTranslationsToSegments(
+                      arabicSegments,
+                      fullTranslation,
+                  ).catch(() => null)
                 : null;
 
             const pairs: {
@@ -1340,13 +1351,15 @@ async function main() {
                 const lastTimedWord = timedChunk[timedChunk.length - 1];
                 const fallbackStart = pairIndex * slotSeconds;
                 const fallbackEnd = (pairIndex + 1) * slotSeconds;
-                const startS = firstTimedWord
-                    ? Math.max(
-                          firstTimedWord.timestamp_from! / 1000 -
-                              TEXT_PAIR_LEAD_SECONDS,
-                          0,
-                      )
-                    : fallbackStart;
+                const startS = pairIndex === 0
+                    ? 0
+                    : firstTimedWord
+                      ? Math.max(
+                            firstTimedWord.timestamp_from! / 1000 -
+                                TEXT_PAIR_LEAD_SECONDS,
+                            0,
+                        )
+                      : fallbackStart;
                 let endS = lastTimedWord
                     ? Math.min(
                           lastTimedWord.timestamp_to! / 1000 +
@@ -1364,10 +1377,12 @@ async function main() {
 
                 pairs.push({
                     arabic: chunk.map((w) => getOverlayWordText(w)).join(" "),
-                    english: mappedSegments?.[pairIndex]?.englishTranslation ?? chunk
-                        .map((w) => getOverlayWordTranslation(w))
-                        .filter(Boolean)
-                        .join(" "),
+                    english:
+                        mappedSegments?.[pairIndex]?.englishTranslation ??
+                        chunk
+                            .map((w) => getOverlayWordTranslation(w))
+                            .filter(Boolean)
+                            .join(" "),
                     startS,
                     endS,
                 });
@@ -1379,11 +1394,7 @@ async function main() {
                     pairs[i].startS + TEXT_PAIR_MIN_SECONDS,
                     nextStart - TEXT_PAIR_GAP_SECONDS,
                 );
-                pairs[i].endS = Math.min(
-                    pairs[i].endS,
-                    maxEnd,
-                    targetSeconds,
-                );
+                pairs[i].endS = Math.min(pairs[i].endS, maxEnd, targetSeconds);
                 if (pairs[i].endS <= pairs[i].startS) {
                     pairs[i].endS = Math.min(
                         pairs[i].startS + TEXT_PAIR_MIN_SECONDS,

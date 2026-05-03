@@ -1,5 +1,5 @@
-import { generate } from '@genkit-ai/google-genai';
-import { googleAI } from '@genkit-ai/google-genai';
+import { generate } from "@genkit-ai/google-genai";
+import { googleAI } from "@genkit-ai/google-genai";
 
 export interface ArabicSegment {
     text: string;
@@ -16,12 +16,17 @@ export async function mapTranslationsToSegments(
     arabicSegments: ArabicSegment[],
     fullEnglishTranslation: string,
 ): Promise<MappedSegment[]> {
-    const arabicText = arabicSegments.map((s) => s.text).join(' ');
+    const arabicText = arabicSegments.map((s) => s.text).join(" ");
     const segmentsJson = JSON.stringify(arabicSegments.map((s) => s.text));
 
-    console.log('[Gemini Translation Mapper] Starting intelligent translation mapping');
-    console.log('[Gemini Translation Mapper] Arabic segments:', segmentsJson);
-    console.log('[Gemini Translation Mapper] Full translation:', fullEnglishTranslation);
+    console.log(
+        "[Gemini Translation Mapper] Starting intelligent translation mapping",
+    );
+    console.log("[Gemini Translation Mapper] Arabic segments:", segmentsJson);
+    console.log(
+        "[Gemini Translation Mapper] Full translation:",
+        fullEnglishTranslation,
+    );
 
     const prompt = `I am creating a video with a maximum of 2 Arabic words on screen at a time. I have the original Arabic segments and the full idiomatic English translation.
 
@@ -42,23 +47,38 @@ Rules:
 Respond ONLY with a valid JSON array (no markdown, no explanation). Each element has {"arabic": "segment text", "english": "translation"}:`;
 
     try {
-        console.log('[Gemini Translation Mapper] Sending prompt to Gemini...');
+        console.log("[Gemini Translation Mapper] Sending prompt to Gemini...");
         const result = await generate({
             model: googleAI.models.gemini15Flash,
             prompt,
         });
 
-        console.log('[Gemini Translation Mapper] Received response from Gemini');
+        console.log(
+            "[Gemini Translation Mapper] Received response from Gemini",
+        );
         const responseText = result.text.trim();
-        console.log('[Gemini Translation Mapper] Raw response:', responseText.substring(0, 200), '...');
+        console.log(
+            "[Gemini Translation Mapper] Raw response:",
+            responseText.substring(0, 200),
+            "...",
+        );
 
         // Remove markdown code blocks if present
-        const jsonText = responseText.replace(/```json\n?|\n?```/g, '').trim();
-        const parsed = JSON.parse(jsonText) as Array<{ arabic: string; english: string }>;
+        const jsonText = responseText.replace(/```json\n?|\n?```/g, "").trim();
+        const parsed = JSON.parse(jsonText) as Array<{
+            arabic: string;
+            english: string;
+        }>;
 
-        console.log('[Gemini Translation Mapper] Successfully parsed', parsed.length, 'mapped segments');
+        console.log(
+            "[Gemini Translation Mapper] Successfully parsed",
+            parsed.length,
+            "mapped segments",
+        );
         parsed.forEach((item, index) => {
-            console.log(`[Gemini Translation Mapper] Segment ${index}: "${item.arabic}" → "${item.english}"`);
+            console.log(
+                `[Gemini Translation Mapper] Segment ${index}: "${item.arabic}" → "${item.english}"`,
+            );
         });
 
         return parsed.map((item, index) => ({
@@ -67,7 +87,10 @@ Respond ONLY with a valid JSON array (no markdown, no explanation). Each element
             position: index,
         }));
     } catch (error) {
-        console.error('[Gemini Translation Mapper] Error during translation mapping:', error instanceof Error ? error.message : String(error));
+        console.error(
+            "[Gemini Translation Mapper] Error during translation mapping:",
+            error instanceof Error ? error.message : String(error),
+        );
         throw error;
     }
 }

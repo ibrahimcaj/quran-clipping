@@ -721,6 +721,13 @@ function estimateAssLineWidth(text: string, fontSize: number, scaleX: number) {
     return units * fontSize * horizontalScale;
 }
 
+function splitAssLines(text: string) {
+    return text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line, index, lines) => line.length > 0 || lines.length === 1);
+}
+
 function wrapAssText(
     text: string,
     fontSize: number,
@@ -802,13 +809,13 @@ function createAssCard(
     subtitleFontSize = 11,
     scaleX = 80,
     scaleY = 125,
-    lineSpacing = 8,
+    lineSpacing = -6,
 ): string {
     const cy = size / 2;
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const hasSubtitle = english.trim().length > 0;
     const maxTextWidth = size * 0.78;
-    const titleLines = wrapAssText(arabic, titleFontSize, scaleX, maxTextWidth);
+    const titleLines = splitAssLines(arabic);
     const subtitleLines = hasSubtitle
         ? wrapAssText(english, subtitleFontSize, scaleX, maxTextWidth)
         : [];
@@ -1565,7 +1572,7 @@ async function main() {
                         subtitleFontSize: textOverride.subtitleFontSize ?? 11,
                         scaleX: textOverride.scaleX ?? 80,
                         scaleY: textOverride.scaleY ?? 125,
-                        lineSpacing: textOverride.lineSpacing ?? 8,
+                        lineSpacing: textOverride.lineSpacing ?? -6,
                         assPath,
                         outputPath: pngPath,
                     },

@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
                 subtitleFontSize: typeof body.textOverride.subtitleFontSize === "number" ? Math.max(8, Math.min(200, body.textOverride.subtitleFontSize)) : 11,
                 scaleX: typeof body.textOverride.scaleX === "number" ? Math.max(1, Math.min(500, body.textOverride.scaleX)) : 80,
                 scaleY: typeof body.textOverride.scaleY === "number" ? Math.max(1, Math.min(500, body.textOverride.scaleY)) : 125,
-                lineSpacing: typeof body.textOverride.lineSpacing === "number" ? Math.max(-100, Math.min(200, body.textOverride.lineSpacing)) : 8,
+                lineSpacing: typeof body.textOverride.lineSpacing === "number" ? Math.max(-100, Math.min(200, body.textOverride.lineSpacing)) : -6,
               }
             : null;
 

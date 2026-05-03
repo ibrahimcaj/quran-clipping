@@ -27,26 +27,25 @@ function escapeAss(t: string) {
         .replace(/\r?\n/g, "\\N");
 }
 
-function splitLines(text: string) {
-    return text.length ? text.split(/\r?\n/) : [];
+function countLines(text: string) {
+    return text.length ? text.split(/\r?\n/).length : 0;
 }
 
-function makeLineDialogues(
+function blockHeight(text: string, fontSize: number, lineSpacing: number) {
+    const lines = countLines(text);
+    if (!lines) return 0;
+    return lines * fontSize + (lines - 1) * lineSpacing;
+}
+
+function makeBlockDialogue(
     text: string,
     styleName: string,
     fontName: string,
     fontSize: number,
     centerY: number,
-    lineSpacing: number,
 ) {
-    const lines = splitLines(text);
-    if (!lines.length) return [];
-    const lineStep = fontSize + lineSpacing;
-    const startY = centerY - ((lines.length - 1) * lineStep) / 2;
-    return lines.map(
-        (line, index) =>
-            `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an5\\pos(${TEXT_CARD_SIZE / 2},${Math.round(startY + index * lineStep)})\\fn${fontName}\\fs${fontSize}}${escapeAss(line)}`,
-    );
+    if (!text.length) return null;
+    return `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an5\\pos(${TEXT_CARD_SIZE / 2},${Math.round(centerY)})\\fn${fontName}\\fs${fontSize}}${escapeAss(text)}`;
 }
 
 function makeAssCard(
@@ -66,39 +65,22 @@ function makeAssCard(
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
-    const titleLines = splitLines(title);
-    const subtitleLines = splitLines(subtitle);
-    const titleCenterY = subtitleLines.length ? cy - lineSpacing / 2 : cy;
-    const subtitleCenterY = cy + lineSpacing / 2;
+    const titleHeight = blockHeight(title, titleFontSize, lineSpacing);
+    const subtitleHeight = blockHeight(subtitle, subtitleFontSize, lineSpacing);
+    const groupHeight = subtitle ? titleHeight + lineSpacing + subtitleHeight : titleHeight;
+    const groupTop = cy - groupHeight / 2;
+    const titleCenterY = subtitle ? groupTop + titleHeight / 2 : cy;
+    const subtitleCenterY = subtitle
+        ? groupTop + titleHeight + lineSpacing + subtitleHeight / 2
+        : cy;
     const dialogues = subtitle
         ? [
-              ...makeLineDialogues(
-                  titleLines.length ? title : "",
-                  "Title",
-                  "Geeza Pro",
-                  titleFontSize,
-                  titleCenterY,
-                  lineSpacing,
-              ),
-              ...makeLineDialogues(
-                  subtitle,
-                  "Sub",
-                  "Arial",
-                  subtitleFontSize,
-                  subtitleCenterY,
-                  lineSpacing,
-              ),
-          ]
+              makeBlockDialogue(title, "Title", "Geeza Pro", titleFontSize, titleCenterY),
+              makeBlockDialogue(subtitle, "Sub", "Arial", subtitleFontSize, subtitleCenterY),
+          ].filter((dialogue): dialogue is string => dialogue !== null)
         : [
-              ...makeLineDialogues(
-                  title,
-                  "Default",
-                  "Geeza Pro",
-                  titleFontSize,
-                  cy,
-                  lineSpacing,
-              ),
-          ];
+              makeBlockDialogue(title, "Default", "Geeza Pro", titleFontSize, titleCenterY),
+          ].filter((dialogue): dialogue is string => dialogue !== null);
     return [
         "[Script Info]",
         "ScriptType: v4.00+",

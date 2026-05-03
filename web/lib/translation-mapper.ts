@@ -1,5 +1,7 @@
-import { generate } from "@genkit-ai/google-genai";
+import { genkit } from "genkit";
 import { googleAI } from "@genkit-ai/google-genai";
+
+const ai = genkit({ plugins: [googleAI()] });
 
 export interface ArabicSegment {
     text: string;
@@ -37,8 +39,8 @@ Rules:
 
 Respond ONLY with a valid JSON array (no markdown, no explanation). Each element has {"arabic": "segment text", "english": "translation"}:`;
 
-    const result = await generate({
-        model: googleAI.models.gemini15Flash,
+    const result = await ai.generate({
+        model: googleAI.model("gemini-2.5-flash"),
         prompt,
     });
 

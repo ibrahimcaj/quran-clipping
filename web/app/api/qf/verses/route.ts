@@ -247,7 +247,7 @@ export async function GET(req: NextRequest) {
                 }
                 const tempRes = await qfFetchWithRetry(path);
                 const { data: tempData, ok: tempOk } =
-                    await parseResponse(tempRes);
+                    await parseResponse(tempRes.clone());
 
                 if (tempOk && tempData && typeof tempData === "object") {
                     const verse = (

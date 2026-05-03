@@ -340,40 +340,6 @@ async function runFfmpegWithProgress(
     );
 }
 
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "default=noprint_wrappers=1:nokey=1",
-                inputPath,
-            ],
-            { stdio: ["ignore", "pipe", "pipe"] },
-        );
-
-        let stdout = "";
-        let stderr = "";
-        proc.stdout.on("data", (chunk) => {
-            stdout += chunk.toString();
-        });
-        proc.stderr.on("data", (chunk) => {
-            stderr += chunk.toString();
-        });
-        proc.on("error", reject);
-        proc.on("close", (code) => {
-            if (code !== 0) {
-                reject(new Error(stderr.trim() || "ffprobe failed"));
-                return;
-            }
-            const seconds = Number.parseFloat(stdout.trim());
-            if (!Number.isFinite(seconds) || seconds <= 0) {
-                reject(new Error(`Invalid duration for ${inputPath}`));
-                return;
-            }
-            resolve(seconds);
-        });
-    });
-}
-
 async function fetchToken() {
     const clientId = process.env.QF_CLIENT_ID;
     const clientSecret = process.env.QF_CLIENT_SECRET;

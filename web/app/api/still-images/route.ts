@@ -31,23 +31,29 @@ function countLines(text: string) {
     return text.length ? text.split(/\r?\n/).length : 0;
 }
 
-function blockHeight(text: string, fontSize: number) {
+function blockHeight(text: string, fontSize: number, lineSpacing: number) {
     const lines = countLines(text);
     if (!lines) return 0;
-    const lineStep = fontSize * 1.2;
-    return lines * lineStep - lineStep + fontSize;
+    const lineStep = fontSize + lineSpacing;
+    return lines * lineStep - lineSpacing;
 }
 
-function makeBlockDialogue(
+function makeLineDialogues(
     text: string,
     styleName: string,
     fontName: string,
     fontSize: number,
-    posY: number,
-    anchor: number,
-) {
-    if (!text.length) return null;
-    return `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an${anchor}\\pos(${TEXT_CARD_SIZE / 2},${Math.round(posY)})\\fn${fontName}\\fs${fontSize}}${escapeAss(text)}`;
+    blockTop: number,
+    lineSpacing: number,
+): (string | null)[] {
+    if (!text.length) return [];
+    const lines = text.split(/\r?\n/);
+    const lineStep = fontSize + lineSpacing;
+    return lines.map((line, index) => {
+        const posY = blockTop + index * lineStep;
+        if (!line.length) return null;
+        return `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an8\\pos(${TEXT_CARD_SIZE / 2},${Math.round(posY)})\\fn${fontName}\\fs${fontSize}}${escapeAss(line)}`;
+    });
 }
 
 function makeAssCard(
@@ -67,8 +73,8 @@ function makeAssCard(
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
-    const titleHeight = blockHeight(title, titleFontSize);
-    const subtitleHeight = blockHeight(subtitle, subtitleFontSize);
+    const titleHeight = blockHeight(title, titleFontSize, lineSpacing);
+    const subtitleHeight = blockHeight(subtitle, subtitleFontSize, lineSpacing);
     const groupHeight = subtitle
         ? titleHeight + lineSpacing + subtitleHeight
         : titleHeight;
@@ -77,31 +83,31 @@ function makeAssCard(
     const subtitleTop = groupTop + titleHeight + lineSpacing;
     const dialogues = subtitle
         ? [
-              makeBlockDialogue(
+              ...makeLineDialogues(
                   title,
                   "Title",
                   "Geeza Pro",
                   titleFontSize,
                   titleTop,
-                  8,
+                  lineSpacing,
               ),
-              makeBlockDialogue(
+              ...makeLineDialogues(
                   subtitle,
                   "Sub",
                   "Arial",
                   subtitleFontSize,
                   subtitleTop,
-                  8,
+                  lineSpacing,
               ),
           ].filter((dialogue): dialogue is string => dialogue !== null)
         : [
-              makeBlockDialogue(
+              ...makeLineDialogues(
                   title,
                   "Default",
                   "Geeza Pro",
                   titleFontSize,
-                  cy,
-                  5,
+                  cy - blockHeight(title, titleFontSize, lineSpacing) / 2,
+                  lineSpacing,
               ),
           ].filter((dialogue): dialogue is string => dialogue !== null);
     return [

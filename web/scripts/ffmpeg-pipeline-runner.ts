@@ -4,7 +4,7 @@ import { createRequire } from "module";
 import { spawn } from "child_process";
 import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
-import { EXPERIMENTS_DIR, PREPARED_VIDEOS_DIR, safeSlug } from "../lib/storage";
+import { EXPERIMENTS_DIR, safeSlug } from "../lib/storage";
 import { mapTranslationsToSegments } from "../lib/translation-mapper";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
@@ -116,7 +116,6 @@ type TimedVideo = VideoDoc & {
 type PlannedSegment = TimedVideo & {
     clipDurationSeconds: number;
     startOffsetSeconds: number;
-    preparedPath: string;
 };
 
 const OUTPUT_FPS = 30;
@@ -143,12 +142,9 @@ function createExperimentOutputPaths(experimentId: string) {
     ensureDir(EXPERIMENTS_DIR);
     const workDir = path.join(EXPERIMENTS_DIR, experimentId);
     ensureDir(workDir);
-    const preparedDir = path.join(workDir, "prepared");
-    ensureDir(preparedDir);
 
     return {
         workDir,
-        preparedDir,
         concatList: path.join(workDir, "concat.txt"),
         stitched: path.join(workDir, "stitched.mp4"),
         lutted: path.join(workDir, "lutted.mp4"),
@@ -157,11 +153,6 @@ function createExperimentOutputPaths(experimentId: string) {
         textOverlaid: path.join(workDir, "text_overlaid.mp4"),
         verseAudio: path.join(workDir, "verse.mp3"),
     };
-}
-
-function getPreparedVideoPath(videoId: string) {
-    ensureDir(PREPARED_VIDEOS_DIR);
-    return path.join(PREPARED_VIDEOS_DIR, `${videoId}.mp4`);
 }
 
 function createProbeAudioPath() {
@@ -487,7 +478,6 @@ function buildVideoSequence(
             ...chosen,
             clipDurationSeconds,
             startOffsetSeconds,
-            preparedPath: getPreparedVideoPath(chosen._id.toString()),
         });
         total += clipDurationSeconds;
     }
@@ -529,9 +519,6 @@ function cleanupIntermediateArtifacts(
             fs.rmSync(filePath, { force: true });
         }
     }
-    if (fs.existsSync(paths.preparedDir)) {
-        fs.rmSync(paths.preparedDir, { recursive: true, force: true });
-    }
 }
 
 function minimumAcceptedSegmentDuration(expectedSeconds: number) {
@@ -544,7 +531,6 @@ function minimumAcceptedSegmentDuration(expectedSeconds: number) {
 
 async function createValidatedSegment(
     video: PlannedSegment,
-    preparedDurationSeconds: number,
     outputPath: string,
     log: (message: string) => Promise<void>,
 ) {
@@ -554,7 +540,7 @@ async function createValidatedSegment(
 
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
         const safeMaxStart = Math.max(
-            preparedDurationSeconds -
+            video.durationSeconds -
                 expectedSeconds -
                 SEGMENT_END_MARGIN_SECONDS,
             0,
@@ -572,10 +558,14 @@ async function createValidatedSegment(
             "ffmpeg",
             [
                 "-y",
+                "-ss",
+                startOffsetSeconds.toFixed(3),
                 "-i",
-                video.preparedPath,
+                video.filePath,
+                "-t",
+                expectedSeconds.toFixed(3),
                 "-vf",
-                `trim=start=${startOffsetSeconds.toFixed(3)}:duration=${expectedSeconds.toFixed(3)},setpts=PTS-STARTPTS,fps=${OUTPUT_FPS},format=yuv420p`,
+                `fps=${OUTPUT_FPS},format=yuv420p`,
                 "-an",
                 "-c:v",
                 "libx264",
@@ -1370,66 +1360,16 @@ async function main() {
             },
         );
 
-        await setStep("Prepare reusable square masters");
-        const preparedDurations = new Map<string, number>();
-        for (const segment of sequence) {
-            if (fs.existsSync(segment.preparedPath)) {
-                await log(
-                    `Reusing prepared master for ${segment.originalFilename}`,
-                );
-            } else {
-                await log(
-                    `Preparing square master for ${segment.originalFilename}`,
-                );
-                await runFfmpegWithProgress(
-                    [
-                        "-y",
-                        "-i",
-                        segment.filePath,
-                        "-vf",
-                        `scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1,fps=${OUTPUT_FPS}`,
-                        "-c:v",
-                        "libx264",
-                        "-preset",
-                        "veryfast",
-                        "-crf",
-                        "18",
-                        "-pix_fmt",
-                        "yuv420p",
-                        "-an",
-                        segment.preparedPath,
-                    ],
-                    log,
-                    setProgress,
-                );
-            }
-            if (!preparedDurations.has(segment.preparedPath)) {
-                preparedDurations.set(
-                    segment.preparedPath,
-                    await ffprobeDuration(segment.preparedPath),
-                );
-            }
-        }
-
         await setStep("Cut 5-second square segments");
         const preparedFiles: string[] = [];
         for (const [index, video] of sequence.entries()) {
             const preparedPath = path.join(
-                paths.preparedDir,
+                paths.workDir,
                 `${String(index + 1).padStart(2, "0")}.mp4`,
             );
             preparedFiles.push(preparedPath);
-            const preparedDurationSeconds = preparedDurations.get(
-                video.preparedPath,
-            );
-            if (!preparedDurationSeconds) {
-                throw new Error(
-                    `Missing prepared duration for ${video.originalFilename}`,
-                );
-            }
             await createValidatedSegment(
                 video,
-                preparedDurationSeconds,
                 preparedPath,
                 log,
             );

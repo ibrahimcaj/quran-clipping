@@ -210,6 +210,7 @@ async function runProcess(
     command: string,
     args: string[],
     onLine?: (line: string) => Promise<void> | void,
+    onProgress?: (progress: { frame?: number; fps?: number; time?: number; percent?: number }) => Promise<void> | void,
 ) {
     return new Promise<void>((resolve, reject) => {
         const proc = spawn(command, args, {
@@ -242,6 +243,26 @@ async function runProcess(
                     lastLoggedAt = now;
                     await onLine(line);
                 }
+
+                // parse progress from frame= lines
+                if (line.includes("frame=") && onProgress) {
+                    const frameMatch = line.match(/frame=\s*(\d+)/);
+                    const fpsMatch = line.match(/fps=\s*([\d.]+)/);
+                    const timeMatch = line.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
+
+                    if (frameMatch || fpsMatch || timeMatch) {
+                        const frame = frameMatch ? parseInt(frameMatch[1], 10) : undefined;
+                        const fps = fpsMatch ? parseFloat(fpsMatch[1]) : undefined;
+                        const totalSeconds =
+                            timeMatch ?
+                                parseInt(timeMatch[1], 10) * 3600 +
+                                parseInt(timeMatch[2], 10) * 60 +
+                                parseFloat(timeMatch[3])
+                            : undefined;
+
+                        await onProgress({ frame, fps, time: totalSeconds });
+                    }
+                }
             }
         });
 
@@ -266,6 +287,59 @@ async function ffprobeDuration(inputPath: string): Promise<number> {
             "ffprobe",
             [
                 "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1:noescapes=1",
+                inputPath,
+            ],
+        );
+        let stdout = "";
+        proc.stdout.on("data", (data) => {
+            stdout += data.toString();
+        });
+        proc.on("close", (code) => {
+            if (code === 0) {
+                const duration = parseFloat(stdout.trim());
+                resolve(Number.isFinite(duration) ? duration : 0);
+            } else {
+                reject(new Error(`ffprobe exit code ${code}`));
+            }
+        });
+        proc.on("error", reject);
+    });
+}
+
+async function runFfmpegWithProgress(
+    args: string[],
+    onLine?: (line: string) => Promise<void> | void,
+    setProgressFn?: (progress: { frame?: number; fps?: number; time?: number; percent?: number }) => Promise<void> | void,
+): Promise<void> {
+    // probe input file for duration
+    let totalSeconds = 0;
+    const inputIndex = args.indexOf("-i");
+    if (inputIndex !== -1 && inputIndex + 1 < args.length) {
+        const inputFile = args[inputIndex + 1];
+        try {
+            totalSeconds = await ffprobeDuration(inputFile);
+        } catch {
+            // if probing fails, we'll just not calc percentage
+        }
+    }
+
+    await runProcess(
+        "ffmpeg",
+        args,
+        onLine,
+        async (progress) => {
+            if (setProgressFn) {
+                await setProgressFn({ ...progress, totalSeconds });
+            }
+        },
+    );
+}
+
                 "error",
                 "-show_entries",
                 "format=duration",
@@ -848,12 +922,38 @@ async function main() {
             {
                 $set: {
                     currentStep: step,
+                    currentStepPercent: 0,
+                    currentStepFrameCount: 0,
+                    currentStepTotalFrames: 0,
                     status,
                     updatedAt: new Date(),
                 },
             },
         );
         await log(step);
+    };
+
+    const setProgress = async (progress: {
+        frame?: number;
+        fps?: number;
+        time?: number;
+        totalSeconds?: number;
+    }) => {
+        if (!currentId || !progress.frame) return;
+        let percent = 0;
+        if (progress.totalSeconds && progress.time) {
+            percent = Math.min(100, Math.round((progress.time / progress.totalSeconds) * 100));
+        }
+        await collection.updateOne(
+            { _id: currentId },
+            {
+                $set: {
+                    currentStepPercent: percent,
+                    currentStepFrameCount: progress.frame,
+                    updatedAt: new Date(),
+                },
+            },
+        );
     };
 
     const markCancelled = async (message: string) => {
@@ -1454,6 +1554,9 @@ async function main() {
                     paths.textOverlaid,
                 ],
                 log,
+                async (progress) => {
+                    await setProgress({ ...progress, totalSeconds: targetSeconds });
+                },
             );
 
             for (let i = 0; i < pngPaths.length; i += 1) {

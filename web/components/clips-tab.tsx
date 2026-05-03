@@ -167,6 +167,9 @@ interface ExperimentAsset {
     verseText?: string | null;
     status: "queued" | "running" | "completed" | "failed" | "cancelled";
     currentStep: string;
+    currentStepPercent?: number;
+    currentStepFrameCount?: number;
+    currentStepTotalFrames?: number;
     logs?: { message: string; createdAt: string }[];
     uploads?: {
         accountId: string;
@@ -1610,8 +1613,28 @@ export function ClipsTab() {
                                             disk after one hour.
                                         </div>
                                     ) : (
-                                        <div className="flex min-h-64 items-center justify-center rounded-lg border bg-muted/30 px-6 text-center text-sm text-muted-foreground">
-                                            {selectedExperiment.currentStep}
+                                        <div className="flex flex-col min-h-64 items-center justify-center rounded-lg border bg-muted/30 px-6 text-center">
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                {selectedExperiment.currentStep}
+                                            </p>
+                                            {selectedExperiment.currentStepPercent !== undefined && selectedExperiment.currentStepPercent > 0 && (
+                                                <div className="w-full max-w-xs">
+                                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-primary transition-all"
+                                                            style={{
+                                                                width: `${selectedExperiment.currentStepPercent}%`,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                        {selectedExperiment.currentStepPercent}%
+                                                        {selectedExperiment.currentStepFrameCount && (
+                                                            <> - Frame {selectedExperiment.currentStepFrameCount}</>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                     <div className="overflow-hidden rounded-lg border">

@@ -417,7 +417,7 @@ export async function POST(req: NextRequest) {
             const overlayFilter =
                 resolvedOverlayBlendMode &&
                 resolvedOverlayBlendMode !== "normal"
-                    ? `[1:v]${overlayScale},format=yuv420p[ovr];[0:v]format=yuv420p[base];[base][ovr]blend=all_mode=${resolvedOverlayBlendMode}[out]`
+                    ? `[1:v]${overlayScale},format=gbrp[ovr];[0:v]format=gbrp[base];[base][ovr]blend=all_mode=${resolvedOverlayBlendMode}[out]`
                     : `[1:v]${overlayScale}[ovr];[0:v][ovr]overlay=0:0:eof_action=pass[out]`;
             await run("ffmpeg", [
                 "-y",

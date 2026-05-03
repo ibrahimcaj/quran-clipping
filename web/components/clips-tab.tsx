@@ -455,7 +455,7 @@ function VerseCard({
             </p>
 
             {translation && (
-                <p className="text-sm text-muted-foreground leading-relaxed border-t pt-3">
+                <p className="text-sm leading-relaxed border-t pt-3 text-foreground/80 italic">
                     {translation}
                 </p>
             )}
@@ -714,6 +714,7 @@ export function ClipsTab() {
             const params = new URLSearchParams({
                 verse_key: verseKey,
                 recitation: nextRecitationId,
+                translations: "131",
             });
             const res = await fetch(`/api/qf/verses?${params}`);
             const text = await res.text();

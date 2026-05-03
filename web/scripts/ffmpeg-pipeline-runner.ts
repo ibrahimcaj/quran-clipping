@@ -291,7 +291,7 @@ async function ffprobeDuration(inputPath: string): Promise<number> {
                 "-show_entries",
                 "format=duration",
                 "-of",
-                "default=noprint_wrappers=1:nokey=1:noescapes=1",
+                "default=noprint_wrappers=1:nokey=1",
                 inputPath,
             ],
         );

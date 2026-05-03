@@ -1177,10 +1177,7 @@ export function ClipsTab() {
                                         <SearchableSelect
                                             items={savedAyahOptions}
                                             value={selectedSavedAyahId}
-                                            onChange={(next) => {
-                                                setSelectedSavedAyahId(next);
-                                                void fetchSavedVerse(next);
-                                            }}
+                                            onChange={setSelectedSavedAyahId}
                                             placeholder="Choose a saved ayah"
                                             searchPlaceholder="Search saved ayaat…"
                                             emptyLabel="No saved ayaat yet."
@@ -1247,47 +1244,50 @@ export function ClipsTab() {
                                         </div>
                                     </>
                                 )}
-                                {finderMode !== "saved" && (
-                                    <div className="flex shrink-0 items-end">
-                                        <Button
-                                            onClick={
-                                                finderMode === "random"
-                                                    ? fetchRandom
-                                                    : undefined
-                                            }
-                                            size={"lg"}
-                                            type={
-                                                finderMode === "random"
-                                                    ? "button"
-                                                    : "submit"
-                                            }
-                                            form={
-                                                finderMode === "specific"
-                                                    ? "specific-ayah-form"
-                                                    : undefined
-                                            }
-                                            disabled={finderLoading}
-                                            className="w-full"
-                                            title={
-                                                finderLoading
-                                                    ? "Finding ayah"
-                                                    : finderMode === "random"
-                                                      ? "Find random ayah"
-                                                      : "Find ayah"
-                                            }
-                                            aria-label={
-                                                finderLoading
-                                                    ? "Finding ayah"
-                                                    : finderMode === "random"
-                                                      ? "Find random ayah"
-                                                      : "Find ayah"
-                                            }
-                                        >
-                                            <Search className="size-4" />
-                                            <span>Find Ayah</span>
-                                        </Button>
-                                    </div>
-                                )}
+                                <div className="flex shrink-0 items-end">
+                                    <Button
+                                        onClick={
+                                            finderMode === "random"
+                                                ? fetchRandom
+                                                : finderMode === "saved"
+                                                  ? () => void fetchSavedVerse(selectedSavedAyahId)
+                                                  : undefined
+                                        }
+                                        size={"lg"}
+                                        type={
+                                            finderMode === "specific"
+                                                ? "submit"
+                                                : "button"
+                                        }
+                                        form={
+                                            finderMode === "specific"
+                                                ? "specific-ayah-form"
+                                                : undefined
+                                        }
+                                        disabled={
+                                            finderLoading ||
+                                            (finderMode === "saved" && !selectedSavedAyahId)
+                                        }
+                                        className="w-full"
+                                        title={
+                                            finderLoading
+                                                ? "Finding ayah"
+                                                : finderMode === "random"
+                                                  ? "Find random ayah"
+                                                  : "Find ayah"
+                                        }
+                                        aria-label={
+                                            finderLoading
+                                                ? "Finding ayah"
+                                                : finderMode === "random"
+                                                  ? "Find random ayah"
+                                                  : "Find ayah"
+                                        }
+                                    >
+                                        <Search className="size-4" />
+                                        <span>Find Ayah</span>
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                         <form

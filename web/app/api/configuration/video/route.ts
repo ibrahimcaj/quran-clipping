@@ -17,6 +17,7 @@ export async function GET() {
             overlayBlendMode: (doc?.overlayBlendMode as string | undefined) ?? "normal",
             audioLeadSeconds: (doc?.audioLeadSeconds as number | undefined) ?? 1.5,
             clipTailSeconds: (doc?.clipTailSeconds as number | undefined) ?? 0,
+            maxVideoClipSeconds: (doc?.maxVideoClipSeconds as number | undefined) ?? 5,
             randomAyahMinSeconds: (doc?.randomAyahMinSeconds as number | undefined) ?? 0,
             randomAyahMaxSeconds: (doc?.randomAyahMaxSeconds as number | undefined) ?? 30,
             uploadCaptionTemplate:
@@ -38,6 +39,7 @@ export async function PATCH(req: NextRequest) {
             overlayBlendMode?: string;
             audioLeadSeconds?: number;
             clipTailSeconds?: number;
+            maxVideoClipSeconds?: number;
             randomAyahMinSeconds?: number;
             randomAyahMaxSeconds?: number;
             uploadCaptionTemplate?: string;
@@ -64,6 +66,9 @@ export async function PATCH(req: NextRequest) {
         }
         if (typeof body.clipTailSeconds === "number") {
             update.clipTailSeconds = Math.max(0, Math.min(60, body.clipTailSeconds));
+        }
+        if (typeof body.maxVideoClipSeconds === "number") {
+            update.maxVideoClipSeconds = Math.max(1, Math.min(60, body.maxVideoClipSeconds));
         }
         if (typeof body.randomAyahMinSeconds === "number") {
             update.randomAyahMinSeconds = Math.max(0, Math.min(300, body.randomAyahMinSeconds));

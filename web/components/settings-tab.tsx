@@ -130,6 +130,7 @@ export function SettingsTab() {
     const [saturation, setSaturation] = useState(1);
     const [audioLeadSeconds, setAudioLeadSeconds] = useState(1.5);
     const [clipTailSeconds, setClipTailSeconds] = useState(0);
+    const [maxVideoClipSeconds, setMaxVideoClipSeconds] = useState(5);
     const [randomAyahMinSeconds, setRandomAyahMinSeconds] = useState(0);
     const [randomAyahMaxSeconds, setRandomAyahMaxSeconds] = useState(30);
     const [uploadCaptionTemplate, setUploadCaptionTemplate] = useState(
@@ -201,6 +202,11 @@ export function SettingsTab() {
                         ? videoCfg.clipTailSeconds
                         : 0,
                 );
+                setMaxVideoClipSeconds(
+                    typeof videoCfg.maxVideoClipSeconds === "number"
+                        ? videoCfg.maxVideoClipSeconds
+                        : 5,
+                );
                 setRandomAyahMinSeconds(
                     typeof videoCfg.randomAyahMinSeconds === "number"
                         ? videoCfg.randomAyahMinSeconds
@@ -246,6 +252,7 @@ export function SettingsTab() {
             saturation?: number;
             audioLeadSeconds?: number;
             clipTailSeconds?: number;
+            maxVideoClipSeconds?: number;
             randomAyahMinSeconds?: number;
             randomAyahMaxSeconds?: number;
             overlayId?: string | null;
@@ -504,6 +511,36 @@ export function SettingsTab() {
                                             const next = Array.isArray(v) ? (v[0] ?? 0) : v;
                                             setClipTailSeconds(next);
                                             saveVideoConfig({ clipTailSeconds: next });
+                                        }}
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Max background clip length
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Maximum seconds each background video segment can run before cutting to the next.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                        {maxVideoClipSeconds.toFixed(0)}s
+                                    </span>
+                                    <Slider
+                                        min={1}
+                                        max={60}
+                                        step={1}
+                                        value={[maxVideoClipSeconds]}
+                                        onValueChange={(v) => {
+                                            const next = Array.isArray(v) ? (v[0] ?? 5) : v;
+                                            setMaxVideoClipSeconds(next);
+                                            saveVideoConfig({ maxVideoClipSeconds: next });
                                         }}
                                     />
                                 </div>

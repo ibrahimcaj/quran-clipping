@@ -444,6 +444,7 @@ function randomOffset(maxStart: number) {
 function buildVideoSequence(
     videos: TimedVideo[],
     targetSeconds: number,
+    maxClipSeconds: number,
 ): PlannedSegment[] {
     const sequence: PlannedSegment[] = [];
     let total = 0;
@@ -452,7 +453,7 @@ function buildVideoSequence(
         const remaining = targetSeconds - total;
         const clipDurationSeconds = Math.min(
             chosen.durationSeconds,
-            5,
+            maxClipSeconds,
             remaining,
         );
         if (clipDurationSeconds <= 0) continue;
@@ -980,6 +981,10 @@ async function main() {
             typeof videoConfigDoc?.clipTailSeconds === "number"
                 ? videoConfigDoc.clipTailSeconds
                 : 0;
+        const maxVideoClipSeconds =
+            typeof videoConfigDoc?.maxVideoClipSeconds === "number"
+                ? videoConfigDoc.maxVideoClipSeconds
+                : 5;
 
         let verse: VersePayload;
         let targetSeconds: number;

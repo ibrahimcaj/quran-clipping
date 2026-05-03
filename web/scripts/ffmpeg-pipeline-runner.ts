@@ -691,11 +691,19 @@ function formatAssTimestamp(seconds: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
-function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11, scaleX = 100, scaleY = 100): string {
-    // single middle-center dialogue so the whole block is treated as one unit
-    const text = english
-        ? `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}\\N{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`
-        : `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`;
+function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11, scaleX = 80, scaleY = 125, lineSpacing = 8): string {
+    const cx = size / 2;
+    const cy = size / 2;
+    const half = lineSpacing / 2;
+    // split title and subtitle into separate dialogue lines so \pos can control the gap between them
+    const dialogues = english
+        ? [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an2\\pos(${cx},${cy - half})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an8\\pos(${cx},${cy + half})\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`,
+          ]
+        : [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an5\\pos(${cx},${cy})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
+          ];
     return [
         "[Script Info]",
         "ScriptType: v4.00+",
@@ -710,7 +718,7 @@ function createAssCard(arabic: string, english: string, size: number, titleFontS
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-        `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,${text}`,
+        ...dialogues,
         "",
     ].join("\n");
 }
@@ -750,13 +758,14 @@ async function renderSubtitleCardPngBatch(
         subtitleFontSize?: number;
         scaleX?: number;
         scaleY?: number;
+        lineSpacing?: number;
     }[],
     log: (msg: string) => Promise<void>,
 ) {
     for (const card of cards) {
         fs.writeFileSync(
             card.assPath,
-            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE, card.titleFontSize, card.subtitleFontSize, card.scaleX, card.scaleY),
+            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE, card.titleFontSize, card.subtitleFontSize, card.scaleX, card.scaleY, card.lineSpacing),
             "utf8",
         );
     }
@@ -1332,7 +1341,7 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const textOverride = experiment.textOverride as { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number; scaleX?: number; scaleY?: number } | null | undefined;
+        const textOverride = experiment.textOverride as { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number; scaleX?: number; scaleY?: number; lineSpacing?: number } | null | undefined;
 
         if (textOverride?.title) {
             await setStep("Render text card overlay");
@@ -1343,8 +1352,9 @@ async function main() {
                 english: textOverride.subtitle ?? "",
                 titleFontSize: textOverride.titleFontSize ?? 36,
                 subtitleFontSize: textOverride.subtitleFontSize ?? 11,
-                scaleX: textOverride.scaleX ?? 100,
-                scaleY: textOverride.scaleY ?? 100,
+                scaleX: textOverride.scaleX ?? 80,
+                scaleY: textOverride.scaleY ?? 125,
+                lineSpacing: textOverride.lineSpacing ?? 8,
                 assPath,
                 outputPath: pngPath,
             }], log);

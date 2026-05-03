@@ -32,13 +32,21 @@ function makeAssCard(
     subtitle: string,
     titleFontSize: number,
     subtitleFontSize: number,
-    scaleX = 100,
-    scaleY = 100,
+    scaleX = 80,
+    scaleY = 125,
+    lineSpacing = 8,
 ): string {
-    // single middle-center dialogue so the whole block is treated as one unit
-    const text = subtitle
-        ? `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}\\N{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`
-        : `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`;
+    const cx = TEXT_CARD_SIZE / 2;
+    const cy = TEXT_CARD_SIZE / 2;
+    const half = lineSpacing / 2;
+    const dialogues = subtitle
+        ? [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an2\\pos(${cx},${cy - half})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an8\\pos(${cx},${cy + half})\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+          ]
+        : [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an5\\pos(${cx},${cy})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+          ];
     return [
         "[Script Info]",
         "ScriptType: v4.00+",
@@ -53,7 +61,7 @@ function makeAssCard(
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-        `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,${text}`,
+        ...dialogues,
         "",
     ].join("\n");
 }
@@ -111,8 +119,9 @@ export async function POST(req: NextRequest) {
             subtitle = "",
             titleFontSize = 32,
             subtitleFontSize = 14,
-            scaleX = 100,
-            scaleY = 100,
+            scaleX = 80,
+            scaleY = 125,
+            lineSpacing = 8,
             vignette,
             exposure,
             saturation,

@@ -33,11 +33,13 @@ async function runAutoclipJob(
     signal: AbortSignal,
 ) {
     try {
+        const experimentId = new ObjectId().toString();
+
         await db
             .collection("autoclipJobs")
             .updateOne(
                 { _id: job._id },
-                { $set: { status: "processing", startedAt: new Date() } },
+                { $set: { status: "processing", startedAt: new Date(), experimentId } },
             );
 
         const verse = await (async () => {
@@ -80,7 +82,6 @@ async function runAutoclipJob(
         const videoId = (videos[0]._id as ObjectId).toString();
         const verseKey = verse.verse.verse_key as string;
         const recitationId = verse.recitationId;
-        const experimentId = new ObjectId().toString();
 
         const experiment = {
             _id: new ObjectId(experimentId),

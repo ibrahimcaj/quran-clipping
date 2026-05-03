@@ -73,9 +73,8 @@ function makeAssCard(
         ? titleHeight + lineSpacing + subtitleHeight
         : titleHeight;
     const groupTop = cy - groupHeight / 2;
-    const groupBottom = groupTop + groupHeight;
     const titleTop = groupTop;
-    const subtitleBottom = groupBottom;
+    const subtitleTop = groupTop + titleHeight + lineSpacing;
     const dialogues = subtitle
         ? [
               makeBlockDialogue(
@@ -91,8 +90,8 @@ function makeAssCard(
                   "Sub",
                   "Arial",
                   subtitleFontSize,
-                  subtitleBottom,
-                  2,
+                  subtitleTop,
+                  8,
               ),
           ].filter((dialogue): dialogue is string => dialogue !== null)
         : [

@@ -147,7 +147,10 @@ async function runAutoclipJob(
                 videoId,
                 verseKey,
                 recitationId,
-            ]);
+            ], {
+                cwd: process.cwd(),
+                env: process.env,
+            });
             proc.on("error", reject);
             proc.on("close", (code) => {
                 if (code === 0) resolve();

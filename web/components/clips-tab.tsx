@@ -210,6 +210,14 @@ interface SavedAyah {
 
 type VerseFinderMode = "random" | "specific" | "saved";
 
+async function readJson<T>(res: Response): Promise<T> {
+    return JSON.parse(await res.text()) as T;
+}
+
+function ensureArray<T>(value: unknown): T[] {
+    return Array.isArray(value) ? (value as T[]) : [];
+}
+
 function VerseAudioPlayer({
     verseKey,
     recitationId,
@@ -607,11 +615,15 @@ export function ClipsTab() {
                     fetch("/api/configuration/video"),
                     fetch("/api/saved-ayaat"),
                 ]);
-                setVideos(JSON.parse(await videosRes.text()));
-                setExperiments(JSON.parse(await experimentsRes.text()));
-                const chapterData = JSON.parse(await chaptersRes.text()) as {
+                const videosData = await readJson<VideoAsset[] | { error?: string }>(
+                    videosRes,
+                );
+                const experimentsData = await readJson<
+                    ExperimentAsset[] | { error?: string }
+                >(experimentsRes);
+                const chapterData = await readJson<{
                     chapters?: ChapterMeta[];
-                };
+                }>(chaptersRes);
                 setChapters(
                     Object.fromEntries(
                         (chapterData.chapters ?? []).map((chapter) => [
@@ -620,14 +632,38 @@ export function ClipsTab() {
                         ]),
                     ),
                 );
-                const reciterCfg = JSON.parse(await reciterCfgRes.text()) as {
+                const reciterCfg = await readJson<{
                     enabledIds?: number[];
-                };
-                const reciterData = JSON.parse(await recitersRes.text()) as {
+                    error?: string;
+                }>(reciterCfgRes);
+                const reciterData = await readJson<{
                     recitations?: Recitation[];
                     error?: string;
-                };
+                }>(recitersRes);
+                const videoCfg = await readJson<{
+                    randomAyahMinSeconds?: number;
+                    randomAyahMaxSeconds?: number;
+                    error?: string;
+                }>(videoCfgRes);
+                const savedAyahData = await readJson<
+                    SavedAyah[] | { error?: string }
+                >(savedAyaatRes);
+
+                if ("error" in videosData && videosData.error) {
+                    throw new Error(videosData.error);
+                }
+                if ("error" in experimentsData && experimentsData.error) {
+                    throw new Error(experimentsData.error);
+                }
+                if (reciterCfg.error) throw new Error(reciterCfg.error);
                 if (reciterData.error) throw new Error(reciterData.error);
+                if (videoCfg.error) throw new Error(videoCfg.error);
+                if ("error" in savedAyahData && savedAyahData.error) {
+                    throw new Error(savedAyahData.error);
+                }
+
+                setVideos(ensureArray<VideoAsset>(videosData));
+                setExperiments(ensureArray<ExperimentAsset>(experimentsData));
                 setRecitations(
                     [...(reciterData.recitations ?? [])].sort((a, b) =>
                         a.reciter_name.localeCompare(b.reciter_name),
@@ -642,18 +678,11 @@ export function ClipsTab() {
                 setCandidateRecitationId((current) =>
                     enabled.includes(current) ? current : (enabled[0] ?? "7"),
                 );
-                const videoCfg = JSON.parse(await videoCfgRes.text()) as {
-                    randomAyahMinSeconds?: number;
-                    randomAyahMaxSeconds?: number;
-                };
-                const savedAyahData = JSON.parse(
-                    await savedAyaatRes.text(),
-                ) as SavedAyah[];
                 if (typeof videoCfg.randomAyahMinSeconds === "number")
                     setRandomAyahMinSeconds(videoCfg.randomAyahMinSeconds);
                 if (typeof videoCfg.randomAyahMaxSeconds === "number")
                     setRandomAyahMaxSeconds(videoCfg.randomAyahMaxSeconds);
-                setSavedAyaat(savedAyahData);
+                setSavedAyaat(ensureArray<SavedAyah>(savedAyahData));
             } catch (e) {
                 toast.error(e instanceof Error ? e.message : String(e));
             } finally {
@@ -675,19 +704,21 @@ export function ClipsTab() {
         const interval = window.setInterval(async () => {
             try {
                 const experimentsRes = await fetch("/api/ffmpeg/experiments");
-                const nextExperiments = JSON.parse(
-                    await experimentsRes.text(),
-                ) as ExperimentAsset[];
-                setExperiments(nextExperiments);
+                const nextExperiments = await readJson<
+                    ExperimentAsset[] | { error?: string }
+                >(experimentsRes);
+                setExperiments(ensureArray<ExperimentAsset>(nextExperiments));
 
                 if (selectedExperiment) {
                     const detailRes = await fetch(
                         `/api/ffmpeg/experiments/${selectedExperiment._id}`,
                     );
-                    const detail = JSON.parse(
-                        await detailRes.text(),
-                    ) as ExperimentAsset;
-                    setSelectedExperiment(detail);
+                    const detail = await readJson<
+                        ExperimentAsset | { error?: string }
+                    >(detailRes);
+                    if (!("error" in detail)) {
+                        setSelectedExperiment(detail);
+                    }
                 }
             } catch {
                 // Keep polling silent while a job is running.

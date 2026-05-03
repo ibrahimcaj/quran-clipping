@@ -31,10 +31,11 @@ function countLines(text: string) {
     return text.length ? text.split(/\r?\n/).length : 0;
 }
 
-function blockHeight(text: string, fontSize: number, lineSpacing: number) {
+function blockHeight(text: string, fontSize: number) {
     const lines = countLines(text);
     if (!lines) return 0;
-    return lines * fontSize + (lines - 1) * lineSpacing;
+    const lineStep = fontSize * 1.2;
+    return lines * lineStep - lineStep + fontSize;
 }
 
 function makeBlockDialogue(
@@ -65,9 +66,11 @@ function makeAssCard(
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
-    const titleHeight = blockHeight(title, titleFontSize, lineSpacing);
-    const subtitleHeight = blockHeight(subtitle, subtitleFontSize, lineSpacing);
-    const groupHeight = subtitle ? titleHeight + lineSpacing + subtitleHeight : titleHeight;
+    const titleHeight = blockHeight(title, titleFontSize);
+    const subtitleHeight = blockHeight(subtitle, subtitleFontSize);
+    const groupHeight = subtitle
+        ? titleHeight + lineSpacing + subtitleHeight
+        : titleHeight;
     const groupTop = cy - groupHeight / 2;
     const titleCenterY = subtitle ? groupTop + titleHeight / 2 : cy;
     const subtitleCenterY = subtitle
@@ -75,11 +78,29 @@ function makeAssCard(
         : cy;
     const dialogues = subtitle
         ? [
-              makeBlockDialogue(title, "Title", "Geeza Pro", titleFontSize, titleCenterY),
-              makeBlockDialogue(subtitle, "Sub", "Arial", subtitleFontSize, subtitleCenterY),
+              makeBlockDialogue(
+                  title,
+                  "Title",
+                  "Geeza Pro",
+                  titleFontSize,
+                  titleCenterY,
+              ),
+              makeBlockDialogue(
+                  subtitle,
+                  "Sub",
+                  "Arial",
+                  subtitleFontSize,
+                  subtitleCenterY,
+              ),
           ].filter((dialogue): dialogue is string => dialogue !== null)
         : [
-              makeBlockDialogue(title, "Default", "Geeza Pro", titleFontSize, titleCenterY),
+              makeBlockDialogue(
+                  title,
+                  "Default",
+                  "Geeza Pro",
+                  titleFontSize,
+                  titleCenterY,
+              ),
           ].filter((dialogue): dialogue is string => dialogue !== null);
     return [
         "[Script Info]",

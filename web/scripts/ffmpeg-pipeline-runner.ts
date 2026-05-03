@@ -709,6 +709,38 @@ function formatAssTimestamp(seconds: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
+function countAssLines(text: string) {
+    return text.length ? text.split(/\r?\n/).length : 0;
+}
+
+function assBlockHeight(text: string, fontSize: number, lineSpacing: number) {
+    const lines = countAssLines(text);
+    if (!lines) return 0;
+    const lineStep = fontSize + lineSpacing;
+    return lines * lineStep - lineSpacing;
+}
+
+function createAssLineDialogues(
+    text: string,
+    styleName: string,
+    fontName: string,
+    fontSize: number,
+    cardWidth: number,
+    blockTop: number,
+    lineSpacing: number,
+): string[] {
+    if (!text.length) return [];
+    const lines = text.split(/\r?\n/);
+    const lineStep = fontSize + lineSpacing;
+    return lines.flatMap((line, index) => {
+        if (!line.length) return [];
+        const posY = blockTop + index * lineStep;
+        return [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an8\\pos(${cardWidth / 2},${Math.round(posY)})\\fn${fontName}\\fs${fontSize}}${escapeAssText(line)}`,
+        ];
+    });
+}
+
 function createAssCard(
     arabic: string,
     english: string,
@@ -720,25 +752,52 @@ function createAssCard(
     lineSpacing = 8,
 ): string {
     const cy = size / 2;
-    // marginV for bottom-aligned title: text bottom = size - marginV = cy - lineSpacing/2
-    // marginV for top-aligned subtitle: text top = marginV = cy + lineSpacing/2
-    // both equal cy + lineSpacing/2
-    const marginV = Math.round(cy + lineSpacing / 2);
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const styles = english
         ? [
-              `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
-              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
+              `Style: Title,Geeza Pro,${titleFontSize},${base},8,0,0,0,1`,
+              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
-    const dialogues = english
+    const titleHeight = assBlockHeight(arabic, titleFontSize, lineSpacing);
+    const subtitleHeight = assBlockHeight(english, subtitleFontSize, lineSpacing);
+    const hasSubtitle = english.trim().length > 0;
+    const groupHeight = hasSubtitle
+        ? titleHeight + lineSpacing + subtitleHeight
+        : titleHeight;
+    const groupTop = cy - groupHeight / 2;
+    const titleTop = groupTop;
+    const subtitleTop = groupTop + titleHeight + lineSpacing;
+    const dialogues = hasSubtitle
         ? [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`,
+              ...createAssLineDialogues(
+                  arabic,
+                  "Title",
+                  "Geeza Pro",
+                  titleFontSize,
+                  size,
+                  titleTop,
+                  lineSpacing,
+              ),
+              ...createAssLineDialogues(
+                  english,
+                  "Sub",
+                  "Arial",
+                  subtitleFontSize,
+                  size,
+                  subtitleTop,
+                  lineSpacing,
+              ),
           ]
-        : [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
-          ];
+        : createAssLineDialogues(
+              arabic,
+              "Default",
+              "Geeza Pro",
+              titleFontSize,
+              size,
+              cy - assBlockHeight(arabic, titleFontSize, lineSpacing) / 2,
+              lineSpacing,
+          );
     return [
         "[Script Info]",
         "ScriptType: v4.00+",

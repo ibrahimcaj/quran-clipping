@@ -48,6 +48,7 @@ import type { OverlayBlendMode } from "@/lib/ffmpeg-experiments";
 import { AYAHS_PER_SURAH } from "@/lib/quran";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Progress } from "@/components/ui/progress";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 // Confirmed URL patterns from api.quran.com for each recitation ID.
 // IDs 6/11/12 use a separate everyayah mirror; all others use audio.qurancdn.com.
@@ -570,6 +571,8 @@ export function ClipsTab() {
         scaleX: number;
         scaleY: number;
         lineSpacing: number;
+        titleColor: string;
+        subtitleColor: string;
     } | null>(null);
     const [textOverrideOpen, setTextOverrideOpen] = useState(false);
     const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
@@ -585,6 +588,10 @@ export function ClipsTab() {
     const [textOverrideDraftScaleY, setTextOverrideDraftScaleY] = useState(125);
     const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] =
         useState(0);
+    const [textOverrideDraftTitleColor, setTextOverrideDraftTitleColor] =
+        useState("FFFFFF");
+    const [textOverrideDraftSubtitleColor, setTextOverrideDraftSubtitleColor] =
+        useState("FFFFFF");
 
     useEffect(() => {
         async function loadAssets() {
@@ -874,6 +881,8 @@ export function ClipsTab() {
         setTextOverrideDraftScaleX(textOverride?.scaleX ?? 80);
         setTextOverrideDraftScaleY(textOverride?.scaleY ?? 125);
         setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? 0);
+        setTextOverrideDraftTitleColor(textOverride?.titleColor ?? "FFFFFF");
+        setTextOverrideDraftSubtitleColor(textOverride?.subtitleColor ?? "FFFFFF");
         setTextOverrideOpen(true);
     }
 
@@ -889,6 +898,8 @@ export function ClipsTab() {
                       scaleX: textOverrideDraftScaleX,
                       scaleY: textOverrideDraftScaleY,
                       lineSpacing: textOverrideDraftLineSpacing,
+                      titleColor: textOverrideDraftTitleColor,
+                      subtitleColor: textOverrideDraftSubtitleColor,
                   }
                 : null,
         );
@@ -1786,6 +1797,22 @@ export function ClipsTab() {
                                         )
                                     }
                                 />
+                            </div>
+                            <div className="grid gap-1.5 sm:grid-cols-2">
+                                <div className="flex flex-col gap-1.5">
+                                    <Label>Title color</Label>
+                                    <ColorPicker
+                                        value={textOverrideDraftTitleColor}
+                                        onChange={setTextOverrideDraftTitleColor}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <Label>Subtitle color</Label>
+                                    <ColorPicker
+                                        value={textOverrideDraftSubtitleColor}
+                                        onChange={setTextOverrideDraftSubtitleColor}
+                                    />
+                                </div>
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">

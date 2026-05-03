@@ -56,6 +56,14 @@ function makeLineDialogues(
     });
 }
 
+function hexToAssColor(hex: string): string {
+    const clean = hex.replace(/^#/, "").toUpperCase();
+    const r = clean.substring(0, 2);
+    const g = clean.substring(2, 4);
+    const b = clean.substring(4, 6);
+    return `&H${b}${g}${r}`;
+}
+
 function makeAssCard(
     title: string,
     subtitle: string,
@@ -64,15 +72,20 @@ function makeAssCard(
     scaleX = 80,
     scaleY = 125,
     lineSpacing = 8,
+    titleColor = "FFFFFF",
+    subtitleColor = "FFFFFF",
 ): string {
     const cy = TEXT_CARD_SIZE / 2;
-    const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
+    const titleColorAss = hexToAssColor(titleColor);
+    const subtitleColorAss = hexToAssColor(subtitleColor);
+    const titleBase = `${titleColorAss},&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
+    const subtitleBase = `${subtitleColorAss},&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const styles = subtitle
         ? [
-              `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,0,1`,
-              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
+              `Style: Title,Geeza Pro,${titleFontSize},${titleBase},2,0,0,0,1`,
+              `Style: Sub,Arial,${subtitleFontSize},${subtitleBase},8,0,0,0,1`,
           ]
-        : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
+        : [`Style: Default,Geeza Pro,${titleFontSize},${titleBase},5,0,0,0,1`];
     const titleHeight = blockHeight(title, titleFontSize, lineSpacing);
     const subtitleHeight = blockHeight(subtitle, subtitleFontSize, lineSpacing);
     const groupHeight = subtitle
@@ -185,6 +198,8 @@ export async function POST(req: NextRequest) {
             scaleX = 80,
             scaleY = 125,
             lineSpacing = 0,
+            titleColor = "FFFFFF",
+            subtitleColor = "FFFFFF",
             vignette,
             exposure,
             saturation,
@@ -200,6 +215,8 @@ export async function POST(req: NextRequest) {
             scaleX?: number;
             scaleY?: number;
             lineSpacing?: number;
+            titleColor?: string;
+            subtitleColor?: string;
             vignette?: number;
             exposure?: number;
             saturation?: number;
@@ -220,6 +237,12 @@ export async function POST(req: NextRequest) {
             8,
             Math.min(200, Math.round(subtitleFontSize)),
         );
+        const safeTitleColor = /^[0-9A-Fa-f]{6}$/.test(titleColor)
+            ? titleColor.toUpperCase()
+            : "FFFFFF";
+        const safeSubtitleColor = /^[0-9A-Fa-f]{6}$/.test(subtitleColor)
+            ? subtitleColor.toUpperCase()
+            : "FFFFFF";
 
         if (!videoId || !ObjectId.isValid(videoId)) {
             return NextResponse.json(
@@ -356,6 +379,8 @@ export async function POST(req: NextRequest) {
                 safeScaleX,
                 safeScaleY,
                 safeLineSpacing,
+                safeTitleColor,
+                safeSubtitleColor,
             ),
             "utf8",
         );

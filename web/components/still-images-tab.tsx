@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
+import { ColorPicker } from "@/components/ui/color-picker";
 import {
     OVERLAY_BLEND_MODES,
     type OverlayBlendMode,
@@ -47,6 +48,8 @@ export function StillImagesTab() {
     const [vignette, setVignette] = useState(0);
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);
+    const [titleColor, setTitleColor] = useState("FFFFFF");
+    const [subtitleColor, setSubtitleColor] = useState("FFFFFF");
     const [loading, setLoading] = useState(false);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -115,6 +118,8 @@ export function StillImagesTab() {
                     scaleX,
                     scaleY,
                     lineSpacing,
+                    titleColor,
+                    subtitleColor,
                     vignette,
                     exposure,
                     saturation,
@@ -269,6 +274,22 @@ export function StillImagesTab() {
                                         Number(e.target.value) || 14,
                                     )
                                 }
+                            />
+                        </div>
+                    </div>
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Title color</Label>
+                            <ColorPicker
+                                value={titleColor}
+                                onChange={setTitleColor}
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Subtitle color</Label>
+                            <ColorPicker
+                                value={subtitleColor}
+                                onChange={setSubtitleColor}
                             />
                         </div>
                     </div>

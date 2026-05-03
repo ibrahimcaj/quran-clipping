@@ -40,6 +40,7 @@ import {
     Upload,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { statusLabel } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1642,10 +1643,11 @@ export function ClipsTab() {
                         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
                             <div className="flex flex-col gap-1.5">
                                 <Label>Title</Label>
-                                <Input
+                                <Textarea
                                     value={textOverrideDraftTitle}
                                     onChange={(e) => setTextOverrideDraftTitle(e.target.value)}
                                     placeholder="Big text…"
+                                    rows={3}
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -1663,10 +1665,11 @@ export function ClipsTab() {
                         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
                             <div className="flex flex-col gap-1.5">
                                 <Label>Subtitle</Label>
-                                <Input
+                                <Textarea
                                     value={textOverrideDraftSubtitle}
                                     onChange={(e) => setTextOverrideDraftSubtitle(e.target.value)}
                                     placeholder="Small text…"
+                                    rows={2}
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">

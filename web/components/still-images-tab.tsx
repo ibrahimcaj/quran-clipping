@@ -9,6 +9,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import {
     OVERLAY_BLEND_MODES,
     type OverlayBlendMode,
@@ -189,7 +190,7 @@ export function StillImagesTab() {
                     <div className="grid w-full min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Title</Label>
-                            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Big text…" />
+                            <Textarea value={title} onChange={e => setTitle(e.target.value)} placeholder="Big text…" rows={3} />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Font size</Label>
@@ -206,7 +207,7 @@ export function StillImagesTab() {
                     <div className="grid w-full min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Subtitle</Label>
-                            <Input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Small text…" />
+                            <Textarea value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Small text…" rows={2} />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Font size</Label>

@@ -123,7 +123,7 @@ const OUTPUT_FPS = 30;
 const SEGMENT_END_MARGIN_SECONDS = 0.25;
 const TEXT_CARD_SIZE = 320;
 const PIXELATE_SIZE = 720;
-const TEXT_CARD_ALPHA = 0.9;
+const TEXT_CARD_ALPHA = 1.0;
 const TEXT_GLOW_ALPHA = 1;
 const TEXT_GLOW_SIGMA = 100;
 const TEXT_GLOW_COLOR = "0x0E3A72";
@@ -706,7 +706,7 @@ function createAssCard(arabic: string, english: string, size: number, titleFontS
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        `Style: Default,Geeza Pro,36,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1`,
+        `Style: Default,Geeza Pro,36,&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,-2,0,1,0,0,5,0,0,0,1`,
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

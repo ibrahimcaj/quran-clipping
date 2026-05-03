@@ -49,11 +49,11 @@ function makeAssCard(
           ];
     const dialogues = subtitle
         ? [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+                        `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+                        `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,${marginV},,{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
           ]
         : [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+                        `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,${marginV},,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
           ];
     return [
         "[Script Info]",

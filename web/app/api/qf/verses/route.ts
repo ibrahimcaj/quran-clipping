@@ -1,6 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
+import { MongoClient } from "mongodb";
 import { getToken, getApiBase, getClientId, clearTokenCache } from "@/lib/qf-token";
+import { getDb } from "@/lib/mongodb";
+import { getVerseDurationSeconds } from "@/lib/verse-utils";
 
 const DEFAULT_RECITATION = "7"; // Mishary Rashid Alafasy
 
@@ -197,7 +200,50 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        const res = await qfFetchWithRetry(path);
+        // fetch random verse with duration filtering
+        let res: Response;
+        if (random) {
+            const db = await getDb();
+            const videoCfg = await db.collection("configuration").findOne({ type: "video" }) as {
+                ayahMinDuration?: number;
+                ayahMaxDuration?: number;
+            } | null;
+            const minDuration = videoCfg?.ayahMinDuration ?? 3;
+            const maxDuration = videoCfg?.ayahMaxDuration ?? 30;
+
+            let attempts = 0;
+            const maxAttempts = 11;
+            let foundVerse: Record<string, unknown> | null = null;
+
+            while (attempts < maxAttempts && !foundVerse) {
+                if (attempts > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                const tempRes = await qfFetchWithRetry(path);
+                const { data: tempData, ok: tempOk } = await parseResponse(tempRes);
+
+                if (tempOk && tempData && typeof tempData === "object") {
+                    const verse = (tempData as { verse?: Record<string, unknown> }).verse;
+                    if (verse) {
+                        const duration = getVerseDurationSeconds(verse);
+                        if (duration !== null && duration >= minDuration && duration <= maxDuration) {
+                            foundVerse = verse;
+                            res = tempRes;
+                        }
+                    }
+                }
+                attempts += 1;
+            }
+
+            if (!foundVerse) {
+                return NextResponse.json(
+                    { error: `Could not find random verse within ${minDuration}-${maxDuration}s range after ${maxAttempts} attempts` },
+                    { status: 404 },
+                );
+            }
+        } else {
+            res = await qfFetchWithRetry(path);
+        }
 
         if (verseLookupConfig) {
             const chapterParams = new URLSearchParams(commonParams);

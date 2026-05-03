@@ -442,8 +442,16 @@ function VerseCard({
                             variant={hasTextOverride ? "default" : "outline"}
                             size="icon"
                             onClick={onOpenTextOverride}
-                            title={hasTextOverride ? "Text override active" : "Set text override"}
-                            aria-label={hasTextOverride ? "Text override active" : "Set text override"}
+                            title={
+                                hasTextOverride
+                                    ? "Text override active"
+                                    : "Set text override"
+                            }
+                            aria-label={
+                                hasTextOverride
+                                    ? "Text override active"
+                                    : "Set text override"
+                            }
                             className="-ml-px h-9 w-9 rounded-none"
                         >
                             <Type className="size-4" />
@@ -554,15 +562,29 @@ export function ClipsTab() {
     const [selectedSavedAyahId, setSelectedSavedAyahId] = useState("");
     const [savingAyah, setSavingAyah] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [textOverride, setTextOverride] = useState<{ title: string; subtitle: string; titleFontSize: number; subtitleFontSize: number; scaleX: number; scaleY: number; lineSpacing: number } | null>(null);
+    const [textOverride, setTextOverride] = useState<{
+        title: string;
+        subtitle: string;
+        titleFontSize: number;
+        subtitleFontSize: number;
+        scaleX: number;
+        scaleY: number;
+        lineSpacing: number;
+    } | null>(null);
     const [textOverrideOpen, setTextOverrideOpen] = useState(false);
     const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
-    const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] = useState("");
-    const [textOverrideDraftTitleFontSize, setTextOverrideDraftTitleFontSize] = useState(36);
-    const [textOverrideDraftSubtitleFontSize, setTextOverrideDraftSubtitleFontSize] = useState(11);
+    const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] =
+        useState("");
+    const [textOverrideDraftTitleFontSize, setTextOverrideDraftTitleFontSize] =
+        useState(36);
+    const [
+        textOverrideDraftSubtitleFontSize,
+        setTextOverrideDraftSubtitleFontSize,
+    ] = useState(11);
     const [textOverrideDraftScaleX, setTextOverrideDraftScaleX] = useState(80);
     const [textOverrideDraftScaleY, setTextOverrideDraftScaleY] = useState(125);
-    const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] = useState(0);
+    const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] =
+        useState(0);
 
     useEffect(() => {
         async function loadAssets() {
@@ -846,7 +868,9 @@ export function ClipsTab() {
         setTextOverrideDraftTitle(textOverride?.title ?? "");
         setTextOverrideDraftSubtitle(textOverride?.subtitle ?? "");
         setTextOverrideDraftTitleFontSize(textOverride?.titleFontSize ?? 36);
-        setTextOverrideDraftSubtitleFontSize(textOverride?.subtitleFontSize ?? 11);
+        setTextOverrideDraftSubtitleFontSize(
+            textOverride?.subtitleFontSize ?? 11,
+        );
         setTextOverrideDraftScaleX(textOverride?.scaleX ?? 80);
         setTextOverrideDraftScaleY(textOverride?.scaleY ?? 125);
         setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? 0);
@@ -855,15 +879,19 @@ export function ClipsTab() {
 
     function applyTextOverride() {
         const title = textOverrideDraftTitle.trim();
-        setTextOverride(title ? {
-            title,
-            subtitle: textOverrideDraftSubtitle.trim(),
-            titleFontSize: textOverrideDraftTitleFontSize,
-            subtitleFontSize: textOverrideDraftSubtitleFontSize,
-            scaleX: textOverrideDraftScaleX,
-            scaleY: textOverrideDraftScaleY,
-            lineSpacing: textOverrideDraftLineSpacing,
-        } : null);
+        setTextOverride(
+            title
+                ? {
+                      title,
+                      subtitle: textOverrideDraftSubtitle.trim(),
+                      titleFontSize: textOverrideDraftTitleFontSize,
+                      subtitleFontSize: textOverrideDraftSubtitleFontSize,
+                      scaleX: textOverrideDraftScaleX,
+                      scaleY: textOverrideDraftScaleY,
+                      lineSpacing: textOverrideDraftLineSpacing,
+                  }
+                : null,
+        );
         setTextOverrideOpen(false);
     }
 
@@ -1310,7 +1338,10 @@ export function ClipsTab() {
                                             finderMode === "random"
                                                 ? fetchRandom
                                                 : finderMode === "saved"
-                                                  ? () => void fetchSavedVerse(selectedSavedAyahId)
+                                                  ? () =>
+                                                        void fetchSavedVerse(
+                                                            selectedSavedAyahId,
+                                                        )
                                                   : undefined
                                         }
                                         size={"lg"}
@@ -1326,7 +1357,8 @@ export function ClipsTab() {
                                         }
                                         disabled={
                                             finderLoading ||
-                                            (finderMode === "saved" && !selectedSavedAyahId)
+                                            (finderMode === "saved" &&
+                                                !selectedSavedAyahId)
                                         }
                                         className="w-full"
                                         title={
@@ -1654,7 +1686,11 @@ export function ClipsTab() {
                                 <Label>Title</Label>
                                 <Textarea
                                     value={textOverrideDraftTitle}
-                                    onChange={(e) => setTextOverrideDraftTitle(e.target.value)}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftTitle(
+                                            e.target.value,
+                                        )
+                                    }
                                     placeholder="Big text…"
                                     rows={3}
                                 />
@@ -1667,7 +1703,11 @@ export function ClipsTab() {
                                     max={200}
                                     step={1}
                                     value={textOverrideDraftTitleFontSize}
-                                    onChange={(e) => setTextOverrideDraftTitleFontSize(Number(e.target.value) || 36)}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftTitleFontSize(
+                                            Number(e.target.value) || 36,
+                                        )
+                                    }
                                 />
                             </div>
                         </div>
@@ -1676,7 +1716,11 @@ export function ClipsTab() {
                                 <Label>Subtitle</Label>
                                 <Textarea
                                     value={textOverrideDraftSubtitle}
-                                    onChange={(e) => setTextOverrideDraftSubtitle(e.target.value)}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftSubtitle(
+                                            e.target.value,
+                                        )
+                                    }
                                     placeholder="Small text…"
                                     rows={2}
                                 />
@@ -1689,7 +1733,11 @@ export function ClipsTab() {
                                     max={200}
                                     step={1}
                                     value={textOverrideDraftSubtitleFontSize}
-                                    onChange={(e) => setTextOverrideDraftSubtitleFontSize(Number(e.target.value) || 11)}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftSubtitleFontSize(
+                                            Number(e.target.value) || 11,
+                                        )
+                                    }
                                 />
                             </div>
                         </div>
@@ -1702,7 +1750,11 @@ export function ClipsTab() {
                                     max={500}
                                     step={1}
                                     value={textOverrideDraftScaleX}
-                                    onChange={(e) => setTextOverrideDraftScaleX(Number(e.target.value) || 100)}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftScaleX(
+                                            Number(e.target.value) || 100,
+                                        )
+                                    }
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -1713,7 +1765,11 @@ export function ClipsTab() {
                                     max={500}
                                     step={1}
                                     value={textOverrideDraftScaleY}
-                                    onChange={(e) => setTextOverrideDraftScaleY(Number(e.target.value) || 100)}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftScaleY(
+                                            Number(e.target.value) || 100,
+                                        )
+                                    }
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -1724,13 +1780,20 @@ export function ClipsTab() {
                                     max={200}
                                     step={1}
                                     value={textOverrideDraftLineSpacing}
-                                    onChange={(e) => setTextOverrideDraftLineSpacing(Number(e.target.value))}
+                                    onChange={(e) =>
+                                        setTextOverrideDraftLineSpacing(
+                                            Number(e.target.value),
+                                        )
+                                    }
                                 />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2">
                             {textOverride && (
-                                <Button variant="outline" onClick={clearTextOverride}>
+                                <Button
+                                    variant="outline"
+                                    onClick={clearTextOverride}
+                                >
                                     Clear
                                 </Button>
                             )}

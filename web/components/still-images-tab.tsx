@@ -15,7 +15,11 @@ import {
     type OverlayBlendMode,
 } from "@/lib/ffmpeg-experiments";
 
-interface Asset { _id: string; name: string; originalFilename: string; }
+interface Asset {
+    _id: string;
+    name: string;
+    originalFilename: string;
+}
 interface VideoConfig {
     vignette?: number;
     exposure?: number;
@@ -63,8 +67,12 @@ export function StillImagesTab() {
                 setLuts(lData);
                 setOverlays(oData);
                 if (vData.length > 0) setVideoId(vData[0]._id);
-                setVignette(typeof cfg.vignette === "number" ? cfg.vignette : 0);
-                setExposure(typeof cfg.exposure === "number" ? cfg.exposure : 0);
+                setVignette(
+                    typeof cfg.vignette === "number" ? cfg.vignette : 0,
+                );
+                setExposure(
+                    typeof cfg.exposure === "number" ? cfg.exposure : 0,
+                );
                 setSaturation(
                     typeof cfg.saturation === "number" ? cfg.saturation : 1,
                 );
@@ -84,9 +92,15 @@ export function StillImagesTab() {
     }, []);
 
     async function generate() {
-        if (!videoId) { toast.error("Select a video first."); return; }
+        if (!videoId) {
+            toast.error("Select a video first.");
+            return;
+        }
         setLoading(true);
-        if (imageUrl) { URL.revokeObjectURL(imageUrl); setImageUrl(null); }
+        if (imageUrl) {
+            URL.revokeObjectURL(imageUrl);
+            setImageUrl(null);
+        }
         try {
             const res = await fetch("/api/still-images", {
                 method: "POST",
@@ -125,7 +139,8 @@ export function StillImagesTab() {
             <div>
                 <h1 className="text-2xl font-medium">Still Images</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Generate a still from a random video frame with text overlay.
+                    Generate a still from a random video frame with text
+                    overlay.
                 </p>
             </div>
 
@@ -134,7 +149,11 @@ export function StillImagesTab() {
                     <div className="flex w-full min-w-0 flex-col gap-1.5">
                         <Label>Video</Label>
                         <SearchableSelect
-                            items={videos.map(v => ({ value: v._id, label: v.name || v.originalFilename, image: `/api/videos/${v._id}/frame` }))}
+                            items={videos.map((v) => ({
+                                value: v._id,
+                                label: v.name || v.originalFilename,
+                                image: `/api/videos/${v._id}/frame`,
+                            }))}
                             value={videoId}
                             onChange={setVideoId}
                             placeholder="Select video"
@@ -146,7 +165,13 @@ export function StillImagesTab() {
                     <div className="flex w-full min-w-0 flex-col gap-1.5">
                         <Label>LUT</Label>
                         <SearchableSelect
-                            items={[{ value: "none", label: "None" }, ...luts.map(l => ({ value: l._id, label: l.name || l.originalFilename }))]}
+                            items={[
+                                { value: "none", label: "None" },
+                                ...luts.map((l) => ({
+                                    value: l._id,
+                                    label: l.name || l.originalFilename,
+                                })),
+                            ]}
                             value={lutId}
                             onChange={setLutId}
                             placeholder="Select LUT"
@@ -161,7 +186,7 @@ export function StillImagesTab() {
                             <SearchableSelect
                                 items={[
                                     { value: "none", label: "None" },
-                                    ...overlays.map(o => ({
+                                    ...overlays.map((o) => ({
                                         value: o._id,
                                         label: o.name || o.originalFilename,
                                     })),
@@ -177,13 +202,15 @@ export function StillImagesTab() {
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Overlay blend</Label>
                             <SearchableSelect
-                                items={OVERLAY_BLEND_MODES.map(mode => ({
+                                items={OVERLAY_BLEND_MODES.map((mode) => ({
                                     value: mode,
                                     label: mode,
                                 }))}
                                 value={overlayBlendMode}
-                                onChange={value =>
-                                    setOverlayBlendMode(value as OverlayBlendMode)
+                                onChange={(value) =>
+                                    setOverlayBlendMode(
+                                        value as OverlayBlendMode,
+                                    )
                                 }
                                 placeholder="Select blend"
                                 searchPlaceholder="Search blend modes…"
@@ -196,7 +223,12 @@ export function StillImagesTab() {
                     <div className="grid w-full min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Title</Label>
-                            <Textarea value={title} onChange={e => setTitle(e.target.value)} placeholder="Big text…" rows={3} />
+                            <Textarea
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="Big text…"
+                                rows={3}
+                            />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Font size</Label>
@@ -206,14 +238,23 @@ export function StillImagesTab() {
                                 max={200}
                                 step={1}
                                 value={titleFontSize}
-                                onChange={e => setTitleFontSize(Number(e.target.value) || 32)}
+                                onChange={(e) =>
+                                    setTitleFontSize(
+                                        Number(e.target.value) || 32,
+                                    )
+                                }
                             />
                         </div>
                     </div>
                     <div className="grid w-full min-w-0 gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Subtitle</Label>
-                            <Textarea value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Small text…" rows={2} />
+                            <Textarea
+                                value={subtitle}
+                                onChange={(e) => setSubtitle(e.target.value)}
+                                placeholder="Small text…"
+                                rows={2}
+                            />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
                             <Label>Font size</Label>
@@ -223,7 +264,11 @@ export function StillImagesTab() {
                                 max={200}
                                 step={1}
                                 value={subtitleFontSize}
-                                onChange={e => setSubtitleFontSize(Number(e.target.value) || 14)}
+                                onChange={(e) =>
+                                    setSubtitleFontSize(
+                                        Number(e.target.value) || 14,
+                                    )
+                                }
                             />
                         </div>
                     </div>
@@ -236,7 +281,9 @@ export function StillImagesTab() {
                                 max={500}
                                 step={1}
                                 value={scaleX}
-                                onChange={e => setScaleX(Number(e.target.value) || 100)}
+                                onChange={(e) =>
+                                    setScaleX(Number(e.target.value) || 100)
+                                }
                             />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
@@ -247,7 +294,9 @@ export function StillImagesTab() {
                                 max={500}
                                 step={1}
                                 value={scaleY}
-                                onChange={e => setScaleY(Number(e.target.value) || 100)}
+                                onChange={(e) =>
+                                    setScaleY(Number(e.target.value) || 100)
+                                }
                             />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-1.5">
@@ -258,7 +307,9 @@ export function StillImagesTab() {
                                 max={200}
                                 step={1}
                                 value={lineSpacing}
-                                onChange={e => setLineSpacing(Number(e.target.value))}
+                                onChange={(e) =>
+                                    setLineSpacing(Number(e.target.value))
+                                }
                             />
                         </div>
                     </div>
@@ -274,7 +325,11 @@ export function StillImagesTab() {
                                 max={3}
                                 step={0.1}
                                 value={[exposure]}
-                                onValueChange={v => setExposure(Array.isArray(v) ? (v[0] ?? 0) : v)}
+                                onValueChange={(v) =>
+                                    setExposure(
+                                        Array.isArray(v) ? (v[0] ?? 0) : v,
+                                    )
+                                }
                             />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-2">
@@ -287,7 +342,11 @@ export function StillImagesTab() {
                                 max={3}
                                 step={0.01}
                                 value={[saturation]}
-                                onValueChange={v => setSaturation(Array.isArray(v) ? (v[0] ?? 1) : v)}
+                                onValueChange={(v) =>
+                                    setSaturation(
+                                        Array.isArray(v) ? (v[0] ?? 1) : v,
+                                    )
+                                }
                             />
                         </div>
                         <div className="flex w-full min-w-0 flex-col gap-2">
@@ -300,12 +359,27 @@ export function StillImagesTab() {
                                 max={1}
                                 step={0.01}
                                 value={[vignette]}
-                                onValueChange={v => setVignette(Array.isArray(v) ? (v[0] ?? 0) : v)}
+                                onValueChange={(v) =>
+                                    setVignette(
+                                        Array.isArray(v) ? (v[0] ?? 0) : v,
+                                    )
+                                }
                             />
                         </div>
                     </div>
-                    <Button className="w-full" onClick={generate} disabled={loading || !videoId}>
-                        {loading ? <><Loader2 className="mr-2 size-4 animate-spin" />Generating…</> : "Generate"}
+                    <Button
+                        className="w-full"
+                        onClick={generate}
+                        disabled={loading || !videoId}
+                    >
+                        {loading ? (
+                            <>
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                                Generating…
+                            </>
+                        ) : (
+                            "Generate"
+                        )}
                     </Button>
                 </div>
 
@@ -331,7 +405,11 @@ export function StillImagesTab() {
                         </div>
                     </div>
                     {imageUrl && !loading && (
-                        <a href={imageUrl} download="still.png" className="text-xs text-center text-muted-foreground hover:text-foreground">
+                        <a
+                            href={imageUrl}
+                            download="still.png"
+                            className="text-xs text-center text-muted-foreground hover:text-foreground"
+                        >
                             Download
                         </a>
                     )}

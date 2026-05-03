@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
             overlayBlendMode?: OverlayBlendMode;
             verseKey?: string | null;
             recitationId?: string | null;
-            textOverride?: { title?: string; subtitle?: string } | null;
+            textOverride?: { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number } | null;
         };
 
         if (!["pipeline", "mix_random_verse"].includes(body.operation)) {
@@ -91,7 +91,12 @@ export async function POST(req: NextRequest) {
         }
 
         const textOverride = body.textOverride?.title?.trim()
-            ? { title: body.textOverride.title.trim(), subtitle: body.textOverride.subtitle?.trim() ?? "" }
+            ? {
+                title: body.textOverride.title.trim(),
+                subtitle: body.textOverride.subtitle?.trim() ?? "",
+                titleFontSize: typeof body.textOverride.titleFontSize === "number" ? Math.max(8, Math.min(200, body.textOverride.titleFontSize)) : 36,
+                subtitleFontSize: typeof body.textOverride.subtitleFontSize === "number" ? Math.max(8, Math.min(200, body.textOverride.subtitleFontSize)) : 11,
+              }
             : null;
 
         const doc = {

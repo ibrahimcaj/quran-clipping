@@ -553,10 +553,12 @@ export function ClipsTab() {
     const [selectedSavedAyahId, setSelectedSavedAyahId] = useState("");
     const [savingAyah, setSavingAyah] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [textOverride, setTextOverride] = useState<{ title: string; subtitle: string } | null>(null);
+    const [textOverride, setTextOverride] = useState<{ title: string; subtitle: string; titleFontSize: number; subtitleFontSize: number } | null>(null);
     const [textOverrideOpen, setTextOverrideOpen] = useState(false);
     const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
     const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] = useState("");
+    const [textOverrideDraftTitleFontSize, setTextOverrideDraftTitleFontSize] = useState(36);
+    const [textOverrideDraftSubtitleFontSize, setTextOverrideDraftSubtitleFontSize] = useState(11);
 
     useEffect(() => {
         async function loadAssets() {
@@ -839,12 +841,19 @@ export function ClipsTab() {
     function openTextOverrideDialog() {
         setTextOverrideDraftTitle(textOverride?.title ?? "");
         setTextOverrideDraftSubtitle(textOverride?.subtitle ?? "");
+        setTextOverrideDraftTitleFontSize(textOverride?.titleFontSize ?? 36);
+        setTextOverrideDraftSubtitleFontSize(textOverride?.subtitleFontSize ?? 11);
         setTextOverrideOpen(true);
     }
 
     function applyTextOverride() {
         const title = textOverrideDraftTitle.trim();
-        setTextOverride(title ? { title, subtitle: textOverrideDraftSubtitle.trim() } : null);
+        setTextOverride(title ? {
+            title,
+            subtitle: textOverrideDraftSubtitle.trim(),
+            titleFontSize: textOverrideDraftTitleFontSize,
+            subtitleFontSize: textOverrideDraftSubtitleFontSize,
+        } : null);
         setTextOverrideOpen(false);
     }
 
@@ -1630,21 +1639,47 @@ export function ClipsTab() {
                         <DialogTitle>Text override</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col gap-4 pt-2">
-                        <div className="flex flex-col gap-1.5">
-                            <Label>Title</Label>
-                            <Input
-                                value={textOverrideDraftTitle}
-                                onChange={(e) => setTextOverrideDraftTitle(e.target.value)}
-                                placeholder="Big text…"
-                            />
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Title</Label>
+                                <Input
+                                    value={textOverrideDraftTitle}
+                                    onChange={(e) => setTextOverrideDraftTitle(e.target.value)}
+                                    placeholder="Big text…"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Font size</Label>
+                                <Input
+                                    type="number"
+                                    min={8}
+                                    max={200}
+                                    step={1}
+                                    value={textOverrideDraftTitleFontSize}
+                                    onChange={(e) => setTextOverrideDraftTitleFontSize(Number(e.target.value) || 36)}
+                                />
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label>Subtitle</Label>
-                            <Input
-                                value={textOverrideDraftSubtitle}
-                                onChange={(e) => setTextOverrideDraftSubtitle(e.target.value)}
-                                placeholder="Small text…"
-                            />
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Subtitle</Label>
+                                <Input
+                                    value={textOverrideDraftSubtitle}
+                                    onChange={(e) => setTextOverrideDraftSubtitle(e.target.value)}
+                                    placeholder="Small text…"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Font size</Label>
+                                <Input
+                                    type="number"
+                                    min={8}
+                                    max={200}
+                                    step={1}
+                                    value={textOverrideDraftSubtitleFontSize}
+                                    onChange={(e) => setTextOverrideDraftSubtitleFontSize(Number(e.target.value) || 11)}
+                                />
+                            </div>
                         </div>
                         <div className="flex justify-end gap-2">
                             {textOverride && (

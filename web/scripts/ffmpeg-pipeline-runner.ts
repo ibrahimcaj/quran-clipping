@@ -691,11 +691,11 @@ function formatAssTimestamp(seconds: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
-function createAssCard(arabic: string, english: string, size: number): string {
+function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11): string {
     // single middle-center dialogue so the whole block is treated as one unit
     const text = english
-        ? `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}\\N{\\fnArial\\fs11}${escapeAssText(english)}`
-        : `{\\an5\\fnGeeza Pro\\fs36}${escapeAssText(arabic)}`;
+        ? `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}\\N{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`
+        : `{\\an5\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`;
     return [
         "[Script Info]",
         "ScriptType: v4.00+",
@@ -746,13 +746,15 @@ async function renderSubtitleCardPngBatch(
         english: string;
         assPath: string;
         outputPath: string;
+        titleFontSize?: number;
+        subtitleFontSize?: number;
     }[],
     log: (msg: string) => Promise<void>,
 ) {
     for (const card of cards) {
         fs.writeFileSync(
             card.assPath,
-            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE),
+            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE, card.titleFontSize, card.subtitleFontSize),
             "utf8",
         );
     }
@@ -1328,7 +1330,7 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const textOverride = experiment.textOverride as { title?: string; subtitle?: string } | null | undefined;
+        const textOverride = experiment.textOverride as { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number } | null | undefined;
 
         if (textOverride?.title) {
             await setStep("Render text card overlay");
@@ -1337,6 +1339,8 @@ async function main() {
             await renderSubtitleCardPngBatch([{
                 arabic: textOverride.title,
                 english: textOverride.subtitle ?? "",
+                titleFontSize: textOverride.titleFontSize ?? 36,
+                subtitleFontSize: textOverride.subtitleFontSize ?? 11,
                 assPath,
                 outputPath: pngPath,
             }], log);

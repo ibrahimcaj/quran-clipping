@@ -713,10 +713,16 @@ function countAssLines(text: string) {
     return text.length ? text.split(/\r?\n/).length : 0;
 }
 
-function assBlockHeight(text: string, fontSize: number, lineSpacing: number) {
+function assBlockHeight(
+    text: string,
+    fontSize: number,
+    lineSpacing: number,
+    scaleY: number,
+) {
     const lines = countAssLines(text);
     if (!lines) return 0;
-    const lineStep = fontSize + lineSpacing;
+    const scaledFontSize = fontSize * (scaleY / 100);
+    const lineStep = scaledFontSize + lineSpacing;
     return lines * lineStep - lineSpacing;
 }
 
@@ -728,10 +734,12 @@ function createAssLineDialogues(
     cardWidth: number,
     blockTop: number,
     lineSpacing: number,
+    scaleY: number,
 ): string[] {
     if (!text.length) return [];
     const lines = text.split(/\r?\n/);
-    const lineStep = fontSize + lineSpacing;
+    const scaledFontSize = fontSize * (scaleY / 100);
+    const lineStep = scaledFontSize + lineSpacing;
     return lines.flatMap((line, index) => {
         if (!line.length) return [];
         const posY = blockTop + index * lineStep;
@@ -759,8 +767,18 @@ function createAssCard(
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
-    const titleHeight = assBlockHeight(arabic, titleFontSize, lineSpacing);
-    const subtitleHeight = assBlockHeight(english, subtitleFontSize, lineSpacing);
+    const titleHeight = assBlockHeight(
+        arabic,
+        titleFontSize,
+        lineSpacing,
+        scaleY,
+    );
+    const subtitleHeight = assBlockHeight(
+        english,
+        subtitleFontSize,
+        lineSpacing,
+        scaleY,
+    );
     const hasSubtitle = english.trim().length > 0;
     const groupHeight = hasSubtitle
         ? titleHeight + lineSpacing + subtitleHeight
@@ -778,6 +796,7 @@ function createAssCard(
                   size,
                   titleTop,
                   lineSpacing,
+                  scaleY,
               ),
               ...createAssLineDialogues(
                   english,
@@ -787,6 +806,7 @@ function createAssCard(
                   size,
                   subtitleTop,
                   lineSpacing,
+                  scaleY,
               ),
           ]
         : createAssLineDialogues(
@@ -795,8 +815,9 @@ function createAssCard(
               "Geeza Pro",
               titleFontSize,
               size,
-              cy - assBlockHeight(arabic, titleFontSize, lineSpacing) / 2,
+              cy - assBlockHeight(arabic, titleFontSize, lineSpacing, scaleY) / 2,
               lineSpacing,
+              scaleY,
           );
     return [
         "[Script Info]",

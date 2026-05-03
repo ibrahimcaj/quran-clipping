@@ -15,13 +15,22 @@ export async function POST(
 
     const db = await getDb();
     const _id = new ObjectId(id);
-    const experiment = await db.collection("ffmpegExperiments").findOne({ _id });
+    const experiment = await db
+        .collection("ffmpegExperiments")
+        .findOne({ _id });
     if (!experiment) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    if (experiment.status === "completed" || experiment.status === "failed" || experiment.status === "cancelled") {
-        return NextResponse.json({ error: "Experiment is no longer running" }, { status: 400 });
+    if (
+        experiment.status === "completed" ||
+        experiment.status === "failed" ||
+        experiment.status === "cancelled"
+    ) {
+        return NextResponse.json(
+            { error: "Experiment is no longer running" },
+            { status: 400 },
+        );
     }
 
     // mark corresponding autoclipJob as cancelled if it exists
@@ -29,21 +38,20 @@ export async function POST(
         .collection("autoclipJobs")
         .findOne({ experimentId: id });
     if (autoclipJob) {
-        await db
-            .collection("autoclipJobs")
-            .updateOne(
-                { _id: autoclipJob._id },
-                {
-                    $set: {
-                        status: "cancelled",
-                        cancelledAt: new Date(),
-                        updatedAt: new Date(),
-                    },
+        await db.collection("autoclipJobs").updateOne(
+            { _id: autoclipJob._id },
+            {
+                $set: {
+                    status: "cancelled",
+                    cancelledAt: new Date(),
+                    updatedAt: new Date(),
                 },
-            );
+            },
+        );
     }
 
-    const pid = typeof experiment.workerPid === "number" ? experiment.workerPid : null;
+    const pid =
+        typeof experiment.workerPid === "number" ? experiment.workerPid : null;
 
     await db.collection("ffmpegExperiments").updateOne(
         { _id },

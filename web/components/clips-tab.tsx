@@ -36,8 +36,10 @@ import {
     Search,
     Square,
     Trash2,
+    Type,
     Upload,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { statusLabel } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -263,16 +265,20 @@ function VerseCard({
     onUseForRender,
     onToggleSaved,
     onGenerate,
+    onOpenTextOverride,
     selectedForRender = false,
     saved = false,
+    hasTextOverride = false,
 }: {
     verse: Verse;
     recitationId: string;
     onUseForRender?: (verse: Verse | null) => void;
     onToggleSaved?: (verse: Verse) => void;
     onGenerate?: (verse: Verse) => void;
+    onOpenTextOverride?: () => void;
     selectedForRender?: boolean;
     saved?: boolean;
+    hasTextOverride?: boolean;
 }) {
     const wordAudioRef = useRef<HTMLAudioElement>(null);
     const stopPlaybackRef = useRef<number | null>(null);
@@ -430,6 +436,18 @@ function VerseCard({
                             />
                         </Button>
                     )}
+                    {onOpenTextOverride && (
+                        <Button
+                            variant={hasTextOverride ? "default" : "outline"}
+                            size="icon"
+                            onClick={onOpenTextOverride}
+                            title={hasTextOverride ? "Text override active" : "Set text override"}
+                            aria-label={hasTextOverride ? "Text override active" : "Set text override"}
+                            className="-ml-px h-9 w-9 rounded-none"
+                        >
+                            <Type className="size-4" />
+                        </Button>
+                    )}
                     {onGenerate && (
                         <Button
                             variant="outline"
@@ -535,6 +553,10 @@ export function ClipsTab() {
     const [selectedSavedAyahId, setSelectedSavedAyahId] = useState("");
     const [savingAyah, setSavingAyah] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [textOverride, setTextOverride] = useState<{ title: string; subtitle: string } | null>(null);
+    const [textOverrideOpen, setTextOverrideOpen] = useState(false);
+    const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
+    const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] = useState("");
 
     useEffect(() => {
         async function loadAssets() {
@@ -814,6 +836,23 @@ export function ClipsTab() {
         }
     }
 
+    function openTextOverrideDialog() {
+        setTextOverrideDraftTitle(textOverride?.title ?? "");
+        setTextOverrideDraftSubtitle(textOverride?.subtitle ?? "");
+        setTextOverrideOpen(true);
+    }
+
+    function applyTextOverride() {
+        const title = textOverrideDraftTitle.trim();
+        setTextOverride(title ? { title, subtitle: textOverrideDraftSubtitle.trim() } : null);
+        setTextOverrideOpen(false);
+    }
+
+    function clearTextOverride() {
+        setTextOverride(null);
+        setTextOverrideOpen(false);
+    }
+
     async function runExperiment(
         operation: "pipeline" | "mix_random_verse",
         options?: {
@@ -839,6 +878,7 @@ export function ClipsTab() {
                     operation,
                     verseKey: verseForRun?.verse_key ?? null,
                     recitationId: verseForRun ? recitationIdForRun : null,
+                    textOverride: textOverride ?? null,
                 }),
             });
             const data = JSON.parse(await res.text());
@@ -848,6 +888,7 @@ export function ClipsTab() {
                 );
             }
             setExperiments((current) => [data, ...current].slice(0, 20));
+            setTextOverride(null);
             toast.success(
                 verseForRun
                     ? `Pipeline started for ${verseForRun.verse_key}.`
@@ -1320,6 +1361,8 @@ export function ClipsTab() {
                                     onToggleSaved={(verse) => {
                                         void toggleSavedAyah(verse);
                                     }}
+                                    onOpenTextOverride={openTextOverrideDialog}
+                                    hasTextOverride={!!textOverride}
                                     onGenerate={(verse) => {
                                         setSelectedVerseForRender(verse);
                                         void runExperiment("mix_random_verse", {
@@ -1580,6 +1623,40 @@ export function ClipsTab() {
                     )}
                 </div>
             </div>
+
+            <Dialog open={textOverrideOpen} onOpenChange={setTextOverrideOpen}>
+                <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Text override</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 pt-2">
+                        <div className="flex flex-col gap-1.5">
+                            <Label>Title</Label>
+                            <Input
+                                value={textOverrideDraftTitle}
+                                onChange={(e) => setTextOverrideDraftTitle(e.target.value)}
+                                placeholder="Big text…"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label>Subtitle</Label>
+                            <Input
+                                value={textOverrideDraftSubtitle}
+                                onChange={(e) => setTextOverrideDraftSubtitle(e.target.value)}
+                                placeholder="Small text…"
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            {textOverride && (
+                                <Button variant="outline" onClick={clearTextOverride}>
+                                    Clear
+                                </Button>
+                            )}
+                            <Button onClick={applyTextOverride}>Apply</Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={!!selectedExperiment}

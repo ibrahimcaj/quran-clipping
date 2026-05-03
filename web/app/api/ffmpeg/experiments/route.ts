@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
             overlayBlendMode?: OverlayBlendMode;
             verseKey?: string | null;
             recitationId?: string | null;
+            textOverride?: { title?: string; subtitle?: string } | null;
         };
 
         if (!["pipeline", "mix_random_verse"].includes(body.operation)) {
@@ -89,6 +90,10 @@ export async function POST(req: NextRequest) {
             overlayName = (overlay.name as string | undefined) ?? (overlay.originalFilename as string | undefined) ?? null;
         }
 
+        const textOverride = body.textOverride?.title?.trim()
+            ? { title: body.textOverride.title.trim(), subtitle: body.textOverride.subtitle?.trim() ?? "" }
+            : null;
+
         const doc = {
             operation: body.operation,
             status: "queued" as ExperimentStatus,
@@ -102,6 +107,7 @@ export async function POST(req: NextRequest) {
             recitationId: body.recitationId ?? null,
             reciterName: null,
             verseKey: body.verseKey ?? null,
+            textOverride,
             verseText: null,
             outputPath: null,
             outputName: null,

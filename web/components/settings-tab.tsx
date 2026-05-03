@@ -493,7 +493,7 @@ export function SettingsTab() {
                                         Clip tail
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        Silence added after the recitation ends, extending the clip.
+                                        Extends the clip after the recitation ends. Negative values trim the clip early.
                                     </p>
                                 </div>
                             </TableCell>
@@ -503,7 +503,7 @@ export function SettingsTab() {
                                         {clipTailSeconds.toFixed(1)}s
                                     </span>
                                     <Slider
-                                        min={0}
+                                        min={-5}
                                         max={10}
                                         step={0.5}
                                         value={[clipTailSeconds]}

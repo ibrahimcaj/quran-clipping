@@ -65,7 +65,7 @@ export async function PATCH(req: NextRequest) {
             update.audioLeadSeconds = Math.max(0, Math.min(5, body.audioLeadSeconds));
         }
         if (typeof body.clipTailSeconds === "number") {
-            update.clipTailSeconds = Math.max(0, Math.min(60, body.clipTailSeconds));
+            update.clipTailSeconds = Math.max(-60, Math.min(60, body.clipTailSeconds));
         }
         if (typeof body.maxVideoClipSeconds === "number") {
             update.maxVideoClipSeconds = Math.max(1, Math.min(60, body.maxVideoClipSeconds));

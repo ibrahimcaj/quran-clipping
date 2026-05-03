@@ -1062,7 +1062,8 @@ async function main() {
         await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
 
         await setStep("Choose random video sequence");
-        const sequence = buildVideoSequence(timedVideos, targetSeconds + clipTailSeconds, maxVideoClipSeconds);
+        const videoTargetSeconds = Math.max(targetSeconds + clipTailSeconds, 0.5);
+        const sequence = buildVideoSequence(timedVideos, videoTargetSeconds, maxVideoClipSeconds);
         await log(
             `Sequence: ${sequence
                 .map(
@@ -1230,7 +1231,7 @@ async function main() {
                 "-i",
                 paths.concatList,
                 "-t",
-                (targetSeconds + clipTailSeconds).toFixed(3),
+                videoTargetSeconds.toFixed(3),
                 "-c:v",
                 "libx264",
                 "-preset",
@@ -1328,6 +1329,36 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
+        const textOverride = experiment.textOverride as { title?: string; subtitle?: string } | null | undefined;
+
+        if (textOverride?.title) {
+            await setStep("Render text card overlay");
+            const assPath = path.join(paths.workDir, "override.ass");
+            const pngPath = path.join(paths.workDir, "override.png");
+            await renderSubtitleCardPngBatch([{
+                arabic: textOverride.title,
+                english: textOverride.subtitle ?? "",
+                assPath,
+                outputPath: pngPath,
+            }], log);
+
+            await runFfmpegWithProgress(
+                [
+                    "-y", "-i", currentVideo,
+                    "-loop", "1", "-i", pngPath,
+                    "-filter_complex",
+                    `[0:v][1:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,0,${targetSeconds.toFixed(3)})':eof_action=pass[vout]`,
+                    "-map", "[vout]",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-an",
+                    paths.textOverlaid,
+                ],
+                log, setProgress,
+            );
+            if (fs.existsSync(pngPath)) fs.rmSync(pngPath, { force: true });
+            if (fs.existsSync(assPath)) fs.rmSync(assPath, { force: true });
+            currentVideo = paths.textOverlaid;
+        }
+
         const rawWords = [...(verse.words ?? [])].sort(
             (a, b) => a.position - b.position,
         );
@@ -1335,7 +1366,7 @@ async function main() {
         const textWords = timedWords.filter(
             (w) => w.char_type_name === "word" && getOverlayWordText(w),
         );
-        if (textWords.length > 0) {
+        if (!textOverride?.title && textWords.length > 0) {
             await setStep("Render Arabic text overlay");
             const pairCount = Math.ceil(textWords.length / 2);
             const slotSeconds = targetSeconds / pairCount;

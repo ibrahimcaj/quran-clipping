@@ -9,6 +9,7 @@ import {
     PREPARED_VIDEOS_DIR,
     safeSlug,
 } from "../lib/storage";
+import { mapTranslationsToSegments } from "../lib/translation-mapper";
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
@@ -1306,6 +1307,21 @@ async function main() {
             await setStep("Render Arabic text overlay");
             const pairCount = Math.ceil(textWords.length / 2);
             const slotSeconds = targetSeconds / pairCount;
+
+            // collect arabic segments for translation mapping
+            const arabicSegments = [];
+            for (let i = 0; i < textWords.length; i += 2) {
+                const chunk = textWords.slice(i, i + 2);
+                const arabicText = chunk.map((w) => getOverlayWordText(w)).join(" ");
+                arabicSegments.push({ text: arabicText, position: Math.floor(i / 2) });
+            }
+
+            // get full verse translation for intelligent mapping
+            const fullTranslation = verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ?? "";
+            const mappedSegments = fullTranslation
+                ? await mapTranslationsToSegments(arabicSegments, fullTranslation).catch(() => null)
+                : null;
+
             const pairs: {
                 arabic: string;
                 english: string;
@@ -1348,7 +1364,7 @@ async function main() {
 
                 pairs.push({
                     arabic: chunk.map((w) => getOverlayWordText(w)).join(" "),
-                    english: chunk
+                    english: mappedSegments?.[pairIndex]?.englishTranslation ?? chunk
                         .map((w) => getOverlayWordTranslation(w))
                         .filter(Boolean)
                         .join(" "),

@@ -1451,17 +1451,6 @@ export function ClipsTab() {
                                                             ? `${experiment.sourceVideoCount} clip${experiment.sourceVideoCount === 1 ? "" : "s"}`
                                                             : "Picking clips..."}
                                                     </p>
-                                                    {experiment.overlayName && (
-                                                        <p className="truncate text-xs text-muted-foreground">
-                                                            Overlay:{" "}
-                                                            {
-                                                                experiment.overlayName
-                                                            }{" "}
-                                                            ·{" "}
-                                                            {experiment.overlayBlendMode ??
-                                                                "normal"}
-                                                        </p>
-                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell
@@ -1655,16 +1644,6 @@ export function ClipsTab() {
                                                     <td className="px-4 py-2 text-muted-foreground">
                                                         {selectedExperiment.reciterName ??
                                                             "Pending"}
-                                                    </td>
-                                                </tr>
-                                                <tr className="border-b">
-                                                    <td className="w-32 px-4 py-2 font-medium">
-                                                        Overlay
-                                                    </td>
-                                                    <td className="px-4 py-2 text-muted-foreground">
-                                                        {selectedExperiment.overlayName
-                                                            ? `${selectedExperiment.overlayName} (${selectedExperiment.overlayBlendMode ?? "normal"})`
-                                                            : "None"}
                                                     </td>
                                                 </tr>
                                                 <tr className="border-b">

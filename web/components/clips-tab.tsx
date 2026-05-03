@@ -1209,9 +1209,39 @@ export function ClipsTab() {
             const res = await fetch("/api/worker/run", {
                 method: "POST",
             });
-            const data = await readJson<{ error?: string }>(res);
+            const data = await readJson<
+                | {
+                      status: "started";
+                      jobId: string;
+                      experimentId: string;
+                      verseKey: string;
+                      recitationId: string;
+                  }
+                | {
+                      status: "busy" | "skipped";
+                      reason: string;
+                      jobId?: string;
+                  }
+                | { error?: string }
+            >(res);
             if (!res.ok) {
-                throw new Error(data.error ?? "Failed to run worker");
+                throw new Error(
+                    "error" in data ? data.error ?? "Failed to run worker" : "Failed to run worker",
+                );
+            }
+            if ("status" in data && data.status === "started") {
+                toast.success(
+                    `Worker started: ${data.verseKey} (${data.recitationId})`,
+                );
+                return;
+            }
+            if ("status" in data && data.status === "busy") {
+                toast.message(data.reason);
+                return;
+            }
+            if ("status" in data && data.status === "skipped") {
+                toast.message(data.reason);
+                return;
             }
             toast.success("Worker run requested.");
         } catch (e) {

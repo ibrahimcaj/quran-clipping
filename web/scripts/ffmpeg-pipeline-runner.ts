@@ -692,17 +692,27 @@ function formatAssTimestamp(seconds: number): string {
 }
 
 function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11, scaleX = 80, scaleY = 125, lineSpacing = 8): string {
-    const cx = size / 2;
     const cy = size / 2;
-    const half = lineSpacing / 2;
-    // split title and subtitle into separate dialogue lines so \pos can control the gap between them
-    const dialogues = english
+    // marginV for bottom-aligned title: text bottom = size - marginV = cy - lineSpacing/2
+    // marginV for top-aligned subtitle: text top = marginV = cy + lineSpacing/2
+    // both equal cy + lineSpacing/2
+    const marginV = Math.round(cy + lineSpacing / 2);
+    const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
+    const styles = english
         ? [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an2\\pos(${cx},${cy - half})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an8\\pos(${cx},${cy + half})\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`,
+            `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
+            `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
           ]
         : [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an5\\pos(${cx},${cy})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
+            `Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`,
+          ];
+    const dialogues = english
+        ? [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`,
+          ]
+        : [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
           ];
     return [
         "[Script Info]",
@@ -714,7 +724,7 @@ function createAssCard(arabic: string, english: string, size: number, titleFontS
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        `Style: Default,Geeza Pro,36,&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0,5,0,0,0,1`,
+        ...styles,
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

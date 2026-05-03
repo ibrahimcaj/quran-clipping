@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
     DropdownMenu,
@@ -20,7 +25,14 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { Eye, Loader2, MoreHorizontal, Plus, Sliders, Trash2 } from "lucide-react";
+import {
+    Eye,
+    Loader2,
+    MoreHorizontal,
+    Plus,
+    Sliders,
+    Trash2,
+} from "lucide-react";
 
 interface LutAsset {
     _id: string;
@@ -72,7 +84,10 @@ export function LutsTab() {
         try {
             const form = new FormData();
             form.append("lut", file);
-            const res = await fetch("/api/luts", { method: "POST", body: form });
+            const res = await fetch("/api/luts", {
+                method: "POST",
+                body: form,
+            });
             const text = await res.text();
             const data = JSON.parse(text);
             if (data.error) {
@@ -127,7 +142,11 @@ export function LutsTab() {
             if (!res.ok) {
                 throw new Error(data.error ?? "Failed to rename LUT");
             }
-            setLuts((current) => current.map((lut) => (lut._id === id ? { ...lut, name: data.name } : lut)));
+            setLuts((current) =>
+                current.map((lut) =>
+                    lut._id === id ? { ...lut, name: data.name } : lut,
+                ),
+            );
             setEditingId(null);
             toast.success("LUT renamed.");
         } catch (e) {
@@ -152,7 +171,8 @@ export function LutsTab() {
                         </span>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Saved color looks for random grading during verse renders.
+                        Saved color looks for random grading during verse
+                        renders.
                     </p>
                 </div>
                 <label
@@ -162,7 +182,11 @@ export function LutsTab() {
                         uploading && "pointer-events-none opacity-60",
                     )}
                 >
-                    {uploading ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    {uploading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                        <Plus className="size-4" />
+                    )}
                     Upload LUT
                     <input
                         type="file"
@@ -190,31 +214,46 @@ export function LutsTab() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading && Array.from({ length: 4 }).map((_, i) => (
-                            <TableRow key={i} className="border-b hover:bg-transparent">
-                                <TableCell className="py-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className="size-8 rounded bg-muted animate-pulse shrink-0" />
-                                        <div className="flex flex-col gap-1">
-                                            <div className="h-4 w-40 bg-muted rounded animate-pulse" />
-                                            <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+                        {loading &&
+                            Array.from({ length: 4 }).map((_, i) => (
+                                <TableRow
+                                    key={i}
+                                    className="border-b hover:bg-transparent"
+                                >
+                                    <TableCell className="py-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-8 rounded bg-muted animate-pulse shrink-0" />
+                                            <div className="flex flex-col gap-1">
+                                                <div className="h-4 w-40 bg-muted rounded animate-pulse" />
+                                                <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+                                            </div>
                                         </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="py-2"><div className="h-4 w-12 bg-muted rounded animate-pulse" /></TableCell>
-                                <TableCell className="py-2"><div className="h-4 w-20 bg-muted rounded animate-pulse" /></TableCell>
-                                <TableCell className="py-2" />
-                            </TableRow>
-                        ))}
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                        <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                        <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                                    </TableCell>
+                                    <TableCell className="py-2" />
+                                </TableRow>
+                            ))}
                         {!loading && luts.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                                    No LUTs yet. Upload one to preview it on random footage.
+                                <TableCell
+                                    colSpan={4}
+                                    className="py-10 text-center text-sm text-muted-foreground"
+                                >
+                                    No LUTs yet. Upload one to preview it on
+                                    random footage.
                                 </TableCell>
                             </TableRow>
                         )}
                         {luts.map((lut) => (
-                            <TableRow key={lut._id} className="border-b hover:bg-muted/30 transition-colors">
+                            <TableRow
+                                key={lut._id}
+                                className="border-b hover:bg-muted/30 transition-colors"
+                            >
                                 <TableCell className="py-2">
                                     <div className="flex items-center gap-3">
                                         <span className="flex size-8 items-center justify-center rounded bg-muted shrink-0">
@@ -224,23 +263,37 @@ export function LutsTab() {
                                             {editingId === lut._id ? (
                                                 <Input
                                                     value={editValue}
-                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                    onChange={(e) =>
+                                                        setEditValue(
+                                                            e.target.value,
+                                                        )
+                                                    }
                                                     className="h-8 w-full"
                                                     autoFocus
-                                                    onBlur={() => setEditingId(null)}
+                                                    onBlur={() =>
+                                                        setEditingId(null)
+                                                    }
                                                     onKeyDown={(e) => {
-                                                        if (e.key === "Enter") void saveRename(lut._id);
-                                                        if (e.key === "Escape") setEditingId(null);
+                                                        if (e.key === "Enter")
+                                                            void saveRename(
+                                                                lut._id,
+                                                            );
+                                                        if (e.key === "Escape")
+                                                            setEditingId(null);
                                                     }}
                                                 />
                                             ) : (
                                                 <button
                                                     type="button"
                                                     className="block w-full cursor-pointer text-left"
-                                                    onClick={() => startRename(lut)}
+                                                    onClick={() =>
+                                                        startRename(lut)
+                                                    }
                                                     title="Rename LUT"
                                                 >
-                                                    <p className="font-medium text-sm leading-tight truncate">{lut.name}</p>
+                                                    <p className="font-medium text-sm leading-tight truncate">
+                                                        {lut.name}
+                                                    </p>
                                                 </button>
                                             )}
                                         </div>
@@ -252,27 +305,40 @@ export function LutsTab() {
                                 <TableCell className="py-2 text-sm text-muted-foreground whitespace-nowrap">
                                     {new Date(lut.createdAt).toLocaleString()}
                                 </TableCell>
-                                <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                                <TableCell
+                                    className="py-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
                                     <div className="flex items-center gap-1">
                                         <Button
                                             size="icon"
                                             variant="ghost"
                                             className="size-8"
                                             title="Preview LUT"
-                                            onClick={() => void openPreview(lut)}
+                                            onClick={() =>
+                                                void openPreview(lut)
+                                            }
                                         >
                                             <Eye className="size-3.5" />
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button size="icon" variant="ghost" className="size-8">
+                                                <Button
+                                                    size="icon"
+                                                    variant="ghost"
+                                                    className="size-8"
+                                                >
                                                     <MoreHorizontal className="size-3.5" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
-                                                    onClick={() => void deleteLut(lut._id)}
-                                                    disabled={deletingId === lut._id}
+                                                    onClick={() =>
+                                                        void deleteLut(lut._id)
+                                                    }
+                                                    disabled={
+                                                        deletingId === lut._id
+                                                    }
                                                     className="gap-2 text-red-500"
                                                 >
                                                     {deletingId === lut._id ? (
@@ -303,22 +369,12 @@ export function LutsTab() {
             >
                 <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0">
                     <DialogHeader className="px-5 pt-5 pb-4 border-b shrink-0">
-                        <DialogTitle className="truncate">{previewing?.name}</DialogTitle>
+                        <DialogTitle className="truncate">
+                            {previewing?.name}
+                        </DialogTitle>
                     </DialogHeader>
                     {previewing && (
                         <div className="min-h-0 overflow-y-auto p-5">
-                            <div className="mb-3 flex items-center justify-end">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setPreviewLoading(true);
-                                        setPreviewNonce(Date.now());
-                                    }}
-                                >
-                                    New random frame
-                                </Button>
-                            </div>
                             <div className="overflow-hidden rounded-lg border bg-muted/20">
                                 {previewLoading && (
                                     <div className="flex h-[60vh] items-center justify-center">
@@ -329,7 +385,10 @@ export function LutsTab() {
                                 <img
                                     src={`/api/luts/${previewing._id}/preview?nonce=${previewNonce}`}
                                     alt={`${previewing.name} preview`}
-                                    className={cn("w-full bg-black", previewLoading && "hidden")}
+                                    className={cn(
+                                        "w-full bg-black",
+                                        previewLoading && "hidden",
+                                    )}
                                     onLoad={() => setPreviewLoading(false)}
                                     onError={() => {
                                         setPreviewLoading(false);

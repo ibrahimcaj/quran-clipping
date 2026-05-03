@@ -36,16 +36,24 @@ function makeAssCard(
     scaleY = 125,
     lineSpacing = 8,
 ): string {
-    const cx = TEXT_CARD_SIZE / 2;
     const cy = TEXT_CARD_SIZE / 2;
-    const half = lineSpacing / 2;
-    const dialogues = subtitle
+    const marginV = Math.round(cy + lineSpacing / 2);
+    const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
+    const styles = subtitle
         ? [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an2\\pos(${cx},${cy - half})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an8\\pos(${cx},${cy + half})\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+            `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
+            `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
           ]
         : [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an5\\pos(${cx},${cy})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+            `Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`,
+          ];
+    const dialogues = subtitle
+        ? [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+          ]
+        : [
+            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
           ];
     return [
         "[Script Info]",
@@ -57,7 +65,7 @@ function makeAssCard(
         "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        `Style: Default,Geeza Pro,${titleFontSize},&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0,5,0,0,0,1`,
+        ...styles,
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

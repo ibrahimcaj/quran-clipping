@@ -108,7 +108,7 @@ async function runAutoclipJob(
         });
 
         const uploadRes = await fetch(
-            `http://localhost:3000/api/ffmpeg/experiments/${experimentId}/upload`,
+            `${process.env.NEXT_PUBLIC_APP_URL || `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}`}/api/ffmpeg/experiments/${experimentId}/upload`,
             {
                 method: "POST",
                 signal,

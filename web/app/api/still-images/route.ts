@@ -27,6 +27,28 @@ function escapeAss(t: string) {
         .replace(/\r?\n/g, "\\N");
 }
 
+function splitLines(text: string) {
+    return text.length ? text.split(/\r?\n/) : [];
+}
+
+function makeLineDialogues(
+    text: string,
+    styleName: string,
+    fontName: string,
+    fontSize: number,
+    centerY: number,
+    lineSpacing: number,
+) {
+    const lines = splitLines(text);
+    if (!lines.length) return [];
+    const lineStep = fontSize + lineSpacing;
+    const startY = centerY - ((lines.length - 1) * lineStep) / 2;
+    return lines.map(
+        (line, index) =>
+            `Dialogue: 0,0:00:00.00,0:00:05.00,${styleName},,0,0,0,,{\\an5\\pos(${TEXT_CARD_SIZE / 2},${Math.round(startY + index * lineStep)})\\fn${fontName}\\fs${fontSize}}${escapeAss(line)}`,
+    );
+}
+
 function makeAssCard(
     title: string,
     subtitle: string,
@@ -37,8 +59,6 @@ function makeAssCard(
     lineSpacing = 8,
 ): string {
     const cy = TEXT_CARD_SIZE / 2;
-    const topY = Math.round(cy - lineSpacing / 2);
-    const bottomY = Math.round(cy + lineSpacing / 2);
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const styles = subtitle
         ? [
@@ -46,13 +66,38 @@ function makeAssCard(
               `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,0,1`,
           ]
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
+    const titleLines = splitLines(title);
+    const subtitleLines = splitLines(subtitle);
+    const titleCenterY = subtitleLines.length ? cy - lineSpacing / 2 : cy;
+    const subtitleCenterY = cy + lineSpacing / 2;
     const dialogues = subtitle
         ? [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\an2\\pos(${cy},${topY})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\an8\\pos(${cy},${bottomY})\\fnArial\\fs${subtitleFontSize}}${escapeAss(subtitle)}`,
+              ...makeLineDialogues(
+                  titleLines.length ? title : "",
+                  "Title",
+                  "Geeza Pro",
+                  titleFontSize,
+                  titleCenterY,
+                  lineSpacing,
+              ),
+              ...makeLineDialogues(
+                  subtitle,
+                  "Sub",
+                  "Arial",
+                  subtitleFontSize,
+                  subtitleCenterY,
+                  lineSpacing,
+              ),
           ]
         : [
-              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\an5\\pos(${cy},${cy})\\fnGeeza Pro\\fs${titleFontSize}}${escapeAss(title)}`,
+              ...makeLineDialogues(
+                  title,
+                  "Default",
+                  "Geeza Pro",
+                  titleFontSize,
+                  cy,
+                  lineSpacing,
+              ),
           ];
     return [
         "[Script Info]",

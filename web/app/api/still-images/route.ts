@@ -75,13 +75,14 @@ function makeAssCard(
         : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
     const titleHeight = blockHeight(title, titleFontSize, lineSpacing);
     const subtitleHeight = blockHeight(subtitle, subtitleFontSize, lineSpacing);
-    const groupHeight = subtitle
+    const hasSubtitle = subtitle.trim().length > 0;
+    const groupHeight = hasSubtitle
         ? titleHeight + lineSpacing + subtitleHeight
         : titleHeight;
     const groupTop = cy - groupHeight / 2;
     const titleTop = groupTop;
     const subtitleTop = groupTop + titleHeight + lineSpacing;
-    const dialogues = subtitle
+    const dialogues = hasSubtitle
         ? [
               ...makeLineDialogues(
                   title,

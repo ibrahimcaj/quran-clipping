@@ -562,7 +562,7 @@ export function ClipsTab() {
     const [textOverrideDraftSubtitleFontSize, setTextOverrideDraftSubtitleFontSize] = useState(11);
     const [textOverrideDraftScaleX, setTextOverrideDraftScaleX] = useState(80);
     const [textOverrideDraftScaleY, setTextOverrideDraftScaleY] = useState(125);
-    const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] = useState(8);
+    const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] = useState(0);
 
     useEffect(() => {
         async function loadAssets() {
@@ -849,7 +849,7 @@ export function ClipsTab() {
         setTextOverrideDraftSubtitleFontSize(textOverride?.subtitleFontSize ?? 11);
         setTextOverrideDraftScaleX(textOverride?.scaleX ?? 80);
         setTextOverrideDraftScaleY(textOverride?.scaleY ?? 125);
-        setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? 8);
+        setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? 0);
         setTextOverrideOpen(true);
     }
 

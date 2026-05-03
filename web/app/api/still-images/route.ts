@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
             subtitleFontSize = 14,
             scaleX = 80,
             scaleY = 125,
-            lineSpacing = 8,
+            lineSpacing = 0,
             vignette,
             exposure,
             saturation,

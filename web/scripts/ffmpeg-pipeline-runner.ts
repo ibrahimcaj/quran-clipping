@@ -189,7 +189,12 @@ async function runProcess(
     command: string,
     args: string[],
     onLine?: (line: string) => Promise<void> | void,
-    onProgress?: (progress: { frame?: number; fps?: number; time?: number; percent?: number }) => Promise<void> | void,
+    onProgress?: (progress: {
+        frame?: number;
+        fps?: number;
+        time?: number;
+        percent?: number;
+    }) => Promise<void> | void,
 ) {
     return new Promise<void>((resolve, reject) => {
         const proc = spawn(command, args, {
@@ -211,7 +216,10 @@ async function runProcess(
                 if (!line) continue;
 
                 // log errors immediately; throttle everything else to ~1/sec
-                const isError = /error|invalid|no such file|cannot open|failed|undefined/i.test(line);
+                const isError =
+                    /error|invalid|no such file|cannot open|failed|undefined/i.test(
+                        line,
+                    );
                 const now = Date.now();
                 if (onLine && (isError || now - lastLoggedAt > 1000)) {
                     lastLoggedAt = now;
@@ -221,16 +229,21 @@ async function runProcess(
                 if (line.includes("frame=") && onProgress) {
                     const frameMatch = line.match(/frame=\s*(\d+)/);
                     const fpsMatch = line.match(/fps=\s*([\d.]+)/);
-                    const timeMatch = line.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/);
+                    const timeMatch = line.match(
+                        /time=(\d{2}):(\d{2}):(\d{2}\.\d{2})/,
+                    );
 
                     if (frameMatch || fpsMatch || timeMatch) {
-                        const frame = frameMatch ? parseInt(frameMatch[1], 10) : undefined;
-                        const fps = fpsMatch ? parseFloat(fpsMatch[1]) : undefined;
-                        const totalSeconds =
-                            timeMatch ?
-                                parseInt(timeMatch[1], 10) * 3600 +
-                                parseInt(timeMatch[2], 10) * 60 +
-                                parseFloat(timeMatch[3])
+                        const frame = frameMatch
+                            ? parseInt(frameMatch[1], 10)
+                            : undefined;
+                        const fps = fpsMatch
+                            ? parseFloat(fpsMatch[1])
+                            : undefined;
+                        const totalSeconds = timeMatch
+                            ? parseInt(timeMatch[1], 10) * 3600 +
+                              parseInt(timeMatch[2], 10) * 60 +
+                              parseFloat(timeMatch[3])
                             : undefined;
 
                         await onProgress({ frame, fps, time: totalSeconds });
@@ -256,18 +269,15 @@ async function runProcess(
 
 async function ffprobeDuration(inputPath: string): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-        const proc = spawn(
-            "ffprobe",
-            [
-                "-v",
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "default=noprint_wrappers=1:nokey=1",
-                inputPath,
-            ],
-        );
+        const proc = spawn("ffprobe", [
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            inputPath,
+        ]);
         let stdout = "";
         let stderr = "";
         proc.stdout.on("data", (data) => {
@@ -281,7 +291,11 @@ async function ffprobeDuration(inputPath: string): Promise<number> {
                 const duration = parseFloat(stdout.trim());
                 resolve(Number.isFinite(duration) ? duration : 0);
             } else {
-                reject(new Error(`ffprobe exit code ${code}${stderr ? `: ${stderr}` : ""}`));
+                reject(
+                    new Error(
+                        `ffprobe exit code ${code}${stderr ? `: ${stderr}` : ""}`,
+                    ),
+                );
             }
         });
         proc.on("error", reject);
@@ -291,11 +305,18 @@ async function ffprobeDuration(inputPath: string): Promise<number> {
 async function runFfmpegWithProgress(
     args: string[],
     onLine?: (line: string) => Promise<void> | void,
-    setProgressFn?: (progress: { frame?: number; fps?: number; time?: number; percent?: number }) => Promise<void> | void,
+    setProgressFn?: (progress: {
+        frame?: number;
+        fps?: number;
+        time?: number;
+        percent?: number;
+    }) => Promise<void> | void,
 ): Promise<void> {
     if (onLine) {
         // log the full command so stuck steps are debuggable
-        await onLine(`ffmpeg ${args.map(a => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`);
+        await onLine(
+            `ffmpeg ${args.map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`,
+        );
     }
 
     let totalSeconds = 0;
@@ -304,24 +325,19 @@ async function runFfmpegWithProgress(
         const inputFile = args[inputIndex + 1];
         try {
             totalSeconds = await ffprobeDuration(inputFile);
-            if (onLine && totalSeconds > 0) await onLine(`input duration: ${totalSeconds.toFixed(2)}s`);
+            if (onLine && totalSeconds > 0)
+                await onLine(`input duration: ${totalSeconds.toFixed(2)}s`);
         } catch {
             // probing failed — percent tracking unavailable
         }
     }
 
-    await runProcess(
-        "ffmpeg",
-        args,
-        onLine,
-        async (progress) => {
-            if (setProgressFn) {
-                await setProgressFn({ ...progress, totalSeconds });
-            }
-        },
-    );
+    await runProcess("ffmpeg", args, onLine, async (progress) => {
+        if (setProgressFn) {
+            await setProgressFn({ ...progress, totalSeconds });
+        }
+    });
 }
-
 
 function verseAudioUrl(verseKey: string, recitationId: string) {
     const entry = RECITER_PATHS[recitationId];
@@ -350,7 +366,9 @@ function getAppBase() {
 }
 
 // routes through our Next.js API so translations are always included
-async function fetchVerseFromApi(params: Record<string, string>): Promise<VersePayload> {
+async function fetchVerseFromApi(
+    params: Record<string, string>,
+): Promise<VersePayload> {
     const url = `${getAppBase()}/api/qf/verses?${new URLSearchParams(params)}`;
     const response = await fetch(url);
     const text = await response.text();
@@ -691,7 +709,16 @@ function formatAssTimestamp(seconds: number): string {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
-function createAssCard(arabic: string, english: string, size: number, titleFontSize = 36, subtitleFontSize = 11, scaleX = 80, scaleY = 125, lineSpacing = 8): string {
+function createAssCard(
+    arabic: string,
+    english: string,
+    size: number,
+    titleFontSize = 36,
+    subtitleFontSize = 11,
+    scaleX = 80,
+    scaleY = 125,
+    lineSpacing = 0,
+): string {
     const cy = size / 2;
     // marginV for bottom-aligned title: text bottom = size - marginV = cy - lineSpacing/2
     // marginV for top-aligned subtitle: text top = marginV = cy + lineSpacing/2
@@ -700,19 +727,17 @@ function createAssCard(arabic: string, english: string, size: number, titleFontS
     const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
     const styles = english
         ? [
-            `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
-            `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
+              `Style: Title,Geeza Pro,${titleFontSize},${base},2,0,0,${marginV},1`,
+              `Style: Sub,Arial,${subtitleFontSize},${base},8,0,0,${marginV},1`,
           ]
-        : [
-            `Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`,
-          ];
+        : [`Style: Default,Geeza Pro,${titleFontSize},${base},5,0,0,0,1`];
     const dialogues = english
         ? [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Title,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{\\fnArial\\fs${subtitleFontSize}}${escapeAssText(english)}`,
           ]
         : [
-            `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
+              `Dialogue: 0,0:00:00.00,0:00:05.00,Default,,0,0,0,,{\\fnGeeza Pro\\fs${titleFontSize}}${escapeAssText(arabic)}`,
           ];
     return [
         "[Script Info]",
@@ -775,7 +800,16 @@ async function renderSubtitleCardPngBatch(
     for (const card of cards) {
         fs.writeFileSync(
             card.assPath,
-            createAssCard(card.arabic, card.english, TEXT_CARD_SIZE, card.titleFontSize, card.subtitleFontSize, card.scaleX, card.scaleY, card.lineSpacing),
+            createAssCard(
+                card.arabic,
+                card.english,
+                TEXT_CARD_SIZE,
+                card.titleFontSize,
+                card.subtitleFontSize,
+                card.scaleX,
+                card.scaleY,
+                card.lineSpacing,
+            ),
             "utf8",
         );
     }
@@ -876,7 +910,10 @@ async function main() {
         if (!currentId || !progress.frame) return;
         let percent = 0;
         if (progress.totalSeconds && progress.time) {
-            percent = Math.min(100, Math.round((progress.time / progress.totalSeconds) * 100));
+            percent = Math.min(
+                100,
+                Math.round((progress.time / progress.totalSeconds) * 100),
+            );
         }
         await collection.updateOne(
             { _id: currentId },
@@ -1001,7 +1038,8 @@ async function main() {
             throw new Error("No valid videos available");
         }
         const maxCoverageSeconds = timedVideos.reduce(
-            (sum, video) => sum + Math.min(video.durationSeconds, maxVideoClipSeconds),
+            (sum, video) =>
+                sum + Math.min(video.durationSeconds, maxVideoClipSeconds),
             0,
         );
         await log(
@@ -1021,7 +1059,9 @@ async function main() {
                     tempAudioPath,
                 );
                 if (!fs.existsSync(tempAudioPath)) {
-                    throw new Error(`Downloaded audio file not found at ${tempAudioPath}`);
+                    throw new Error(
+                        `Downloaded audio file not found at ${tempAudioPath}`,
+                    );
                 }
                 const stats = fs.statSync(tempAudioPath);
                 await log(`Downloaded audio: ${stats.size} bytes`);
@@ -1030,7 +1070,9 @@ async function main() {
                 }
                 targetSeconds = await ffprobeDuration(tempAudioPath);
             } catch (err) {
-                await log(`Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`);
+                await log(
+                    `Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`,
+                );
                 throw err;
             } finally {
                 if (fs.existsSync(tempAudioPath))
@@ -1084,8 +1126,15 @@ async function main() {
         await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
 
         await setStep("Choose random video sequence");
-        const videoTargetSeconds = Math.max(targetSeconds + clipTailSeconds, 0.5);
-        const sequence = buildVideoSequence(timedVideos, videoTargetSeconds, maxVideoClipSeconds);
+        const videoTargetSeconds = Math.max(
+            targetSeconds + clipTailSeconds,
+            0.5,
+        );
+        const sequence = buildVideoSequence(
+            timedVideos,
+            videoTargetSeconds,
+            maxVideoClipSeconds,
+        );
         await log(
             `Sequence: ${sequence
                 .map(
@@ -1351,36 +1400,67 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const textOverride = experiment.textOverride as { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number; scaleX?: number; scaleY?: number; lineSpacing?: number } | null | undefined;
+        const textOverride = experiment.textOverride as
+            | {
+                  title?: string;
+                  subtitle?: string;
+                  titleFontSize?: number;
+                  subtitleFontSize?: number;
+                  scaleX?: number;
+                  scaleY?: number;
+                  lineSpacing?: number;
+              }
+            | null
+            | undefined;
 
         if (textOverride?.title) {
             await setStep("Render text card overlay");
             const assPath = path.join(paths.workDir, "override.ass");
             const pngPath = path.join(paths.workDir, "override.png");
-            await renderSubtitleCardPngBatch([{
-                arabic: textOverride.title,
-                english: textOverride.subtitle ?? "",
-                titleFontSize: textOverride.titleFontSize ?? 36,
-                subtitleFontSize: textOverride.subtitleFontSize ?? 11,
-                scaleX: textOverride.scaleX ?? 80,
-                scaleY: textOverride.scaleY ?? 125,
-                lineSpacing: textOverride.lineSpacing ?? 8,
-                assPath,
-                outputPath: pngPath,
-            }], log);
+            await renderSubtitleCardPngBatch(
+                [
+                    {
+                        arabic: textOverride.title,
+                        english: textOverride.subtitle ?? "",
+                        titleFontSize: textOverride.titleFontSize ?? 36,
+                        subtitleFontSize: textOverride.subtitleFontSize ?? 11,
+                        scaleX: textOverride.scaleX ?? 80,
+                        scaleY: textOverride.scaleY ?? 125,
+                        lineSpacing: textOverride.lineSpacing ?? 8,
+                        assPath,
+                        outputPath: pngPath,
+                    },
+                ],
+                log,
+            );
 
             await runFfmpegWithProgress(
                 [
-                    "-y", "-i", currentVideo,
-                    "-loop", "1", "-i", pngPath,
+                    "-y",
+                    "-i",
+                    currentVideo,
+                    "-loop",
+                    "1",
+                    "-i",
+                    pngPath,
                     "-filter_complex",
                     `[0:v][1:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,0,${targetSeconds.toFixed(3)})':eof_action=pass[vout]`,
-                    "-map", "[vout]",
-                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", "-an",
+                    "-map",
+                    "[vout]",
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "18",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-an",
                     "-shortest",
                     paths.textOverlaid,
                 ],
-                log, setProgress,
+                log,
+                setProgress,
             );
             if (fs.existsSync(pngPath)) fs.rmSync(pngPath, { force: true });
             if (fs.existsSync(assPath)) fs.rmSync(assPath, { force: true });
@@ -1414,17 +1494,32 @@ async function main() {
 
             // get full verse translation — QF API may omit it, fall back to public Quran.com API
             let fullTranslation =
-                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ?? "";
-            await log(`Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 120)}"`);
+                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ??
+                "";
+            await log(
+                `Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 120)}"`,
+            );
             const mappedSegments = fullTranslation
-                ? await mapTranslationsToSegments(arabicSegments, fullTranslation, log)
+                ? await mapTranslationsToSegments(
+                      arabicSegments,
+                      fullTranslation,
+                      log,
+                  )
                       .then((segments) => {
-                          log(`Gemini: mapped ${segments.length} segments successfully`);
-                          segments.forEach((s, i) => log(`Gemini segment ${i + 1}: "${s.arabicText}" → "${s.englishTranslation}"`));
+                          log(
+                              `Gemini: mapped ${segments.length} segments successfully`,
+                          );
+                          segments.forEach((s, i) =>
+                              log(
+                                  `Gemini segment ${i + 1}: "${s.arabicText}" → "${s.englishTranslation}"`,
+                              ),
+                          );
                           return segments;
                       })
                       .catch(async (err) => {
-                          await log(`Gemini: failed - ${err instanceof Error ? err.message : String(err)}, falling back to segment translations`);
+                          await log(
+                              `Gemini: failed - ${err instanceof Error ? err.message : String(err)}, falling back to segment translations`,
+                          );
                           return null;
                       })
                 : null;
@@ -1447,15 +1542,16 @@ async function main() {
                 const lastTimedWord = timedChunk[timedChunk.length - 1];
                 const fallbackStart = pairIndex * slotSeconds;
                 const fallbackEnd = (pairIndex + 1) * slotSeconds;
-                const startS = pairIndex === 0
-                    ? 0
-                    : firstTimedWord
-                      ? Math.max(
-                            firstTimedWord.timestamp_from! / 1000 -
-                                TEXT_PAIR_LEAD_SECONDS,
-                            0,
-                        )
-                      : fallbackStart;
+                const startS =
+                    pairIndex === 0
+                        ? 0
+                        : firstTimedWord
+                          ? Math.max(
+                                firstTimedWord.timestamp_from! / 1000 -
+                                    TEXT_PAIR_LEAD_SECONDS,
+                                0,
+                            )
+                          : fallbackStart;
                 let endS = lastTimedWord
                     ? Math.min(
                           lastTimedWord.timestamp_to! / 1000 +
@@ -1605,20 +1701,35 @@ async function main() {
             await setStep("Merge Quran audio");
             const audioInputArgs =
                 audioLeadSeconds > 0
-                    ? ["-ss", audioLeadSeconds.toFixed(3), "-i", paths.verseAudio]
+                    ? [
+                          "-ss",
+                          audioLeadSeconds.toFixed(3),
+                          "-i",
+                          paths.verseAudio,
+                      ]
                     : ["-i", paths.verseAudio];
             const audioMapArgs =
                 clipTailSeconds > 0
-                    ? ["-filter_complex", `[1:a]apad=pad_dur=${clipTailSeconds.toFixed(3)}[a]`, "-map", "0:v:0", "-map", "[a]"]
+                    ? [
+                          "-filter_complex",
+                          `[1:a]apad=pad_dur=${clipTailSeconds.toFixed(3)}[a]`,
+                          "-map",
+                          "0:v:0",
+                          "-map",
+                          "[a]",
+                      ]
                     : ["-map", "0:v:0", "-map", "1:a:0"];
             await runFfmpegWithProgress(
                 [
                     "-y",
-                    "-i", currentVideo,
+                    "-i",
+                    currentVideo,
                     ...audioInputArgs,
                     ...audioMapArgs,
-                    "-c:v", "copy",
-                    "-c:a", "aac",
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "aac",
                     "-shortest",
                     finalPath,
                 ],

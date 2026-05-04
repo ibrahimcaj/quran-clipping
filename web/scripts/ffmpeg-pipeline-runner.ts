@@ -133,6 +133,7 @@ const TEXT_PAIR_LEAD_SECONDS = 0.04;
 const TEXT_PAIR_TAIL_SECONDS = 0.08;
 const TEXT_PAIR_MIN_SECONDS = 0.35;
 const TEXT_PAIR_GAP_SECONDS = 0.02;
+const TEXT_CARD_FADE_SECONDS = 0.12;
 
 function ensureDir(dir: string) {
     fs.mkdirSync(dir, { recursive: true });
@@ -519,6 +520,13 @@ function cleanupIntermediateArtifacts(
             fs.rmSync(filePath, { force: true });
         }
     }
+}
+
+function getCardFadeSeconds(durationSeconds: number) {
+    return Math.max(
+        0,
+        Math.min(TEXT_CARD_FADE_SECONDS, Math.max(durationSeconds / 2 - 0.01, 0)),
+    );
 }
 
 function minimumAcceptedSegmentDuration(expectedSeconds: number) {
@@ -1596,7 +1604,18 @@ async function main() {
                     "-i",
                     pngPath,
                     "-filter_complex",
-                    `[0:v][1:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,0,${targetSeconds.toFixed(3)})':eof_action=pass[vout]`,
+                    (() => {
+                        const cardDuration = Math.max(targetSeconds, 0.05);
+                        const fadeSeconds = getCardFadeSeconds(cardDuration);
+                        const fadeOutStart = Math.max(
+                            cardDuration - fadeSeconds,
+                            0,
+                        );
+                        return [
+                            `[1:v]format=rgba,trim=duration=${cardDuration.toFixed(3)},setpts=PTS-STARTPTS,fade=t=in:st=0:d=${fadeSeconds.toFixed(3)}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeSeconds.toFixed(3)}:alpha=1[card]`,
+                            `[0:v][card]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:eof_action=pass[vout]`,
+                        ].join(";");
+                    })(),
                     "-map",
                     "[vout]",
                     "-c:v",
@@ -1775,9 +1794,14 @@ async function main() {
             let prevStream = "0:v";
             for (let i = 0; i < pairs.length; i += 1) {
                 const { startS, endS } = pairs[i];
+                const durationS = Math.max(endS - startS, 0.05);
+                const fadeSeconds = getCardFadeSeconds(durationS);
+                const fadeOutStart = Math.max(durationS - fadeSeconds, 0);
+                const cardStream = `card${i}`;
                 const outStream = i === pairs.length - 1 ? "vout" : `v${i}`;
                 filterParts.push(
-                    `[${prevStream}][${i + 1}:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,${startS.toFixed(3)},${endS.toFixed(3)})':eof_action=pass[${outStream}]`,
+                    `[${i + 1}:v]format=rgba,trim=duration=${durationS.toFixed(3)},setpts=PTS-STARTPTS,fade=t=in:st=0:d=${fadeSeconds.toFixed(3)}:alpha=1,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeSeconds.toFixed(3)}:alpha=1,setpts=PTS+${startS.toFixed(3)}/TB[${cardStream}]`,
+                    `[${prevStream}][${cardStream}]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:eof_action=pass[${outStream}]`,
                 );
                 prevStream = outStream;
             }

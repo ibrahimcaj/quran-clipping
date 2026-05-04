@@ -50,6 +50,7 @@ import type { OverlayBlendMode } from "@/lib/ffmpeg-experiments";
 import { AYAHS_PER_SURAH } from "@/lib/quran";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Progress } from "@/components/ui/progress";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 // Confirmed URL patterns from api.quran.com for each recitation ID.
 // IDs 6/11/12 use a separate everyayah mirror; all others use audio.qurancdn.com.
@@ -659,9 +660,9 @@ export function ClipsTab() {
                     fetch("/api/configuration/video"),
                     fetch("/api/saved-ayaat"),
                 ]);
-                const videosData = await readJson<VideoAsset[] | { error?: string }>(
-                    videosRes,
-                );
+                const videosData = await readJson<
+                    VideoAsset[] | { error?: string }
+                >(videosRes);
                 const audiosData = await readJson<
                     AudioAsset[] | { error?: string }
                 >(audiosRes);
@@ -978,11 +979,11 @@ export function ClipsTab() {
                     preferredRecitationId,
                 }),
             });
-            const data = (await readJson<SavedAyah | { error?: string }>(res));
+            const data = await readJson<SavedAyah | { error?: string }>(res);
             if (!res.ok || ("error" in data && data.error)) {
                 throw new Error(
                     "error" in data
-                        ? data.error ?? "Failed to update saved ayah"
+                        ? (data.error ?? "Failed to update saved ayah")
                         : "Failed to update saved ayah",
                 );
             }
@@ -1166,10 +1167,9 @@ export function ClipsTab() {
                 : null
             : null;
         const parsedCustomAudioEnd =
-            (
-                verseForRun && finderAudioSourceMode === "audio"
-                    ? finderAudioEndSeconds
-                    : ""
+            (verseForRun && finderAudioSourceMode === "audio"
+                ? finderAudioEndSeconds
+                : ""
             ).trim().length > 0
                 ? Number(
                       verseForRun && finderAudioSourceMode === "audio"
@@ -1214,8 +1214,8 @@ export function ClipsTab() {
             toast.success(
                 customAudioIdForRun
                     ? verseForRun
-                      ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
-                      : "Pipeline started."
+                        ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
+                        : "Pipeline started."
                     : verseForRun
                       ? `Pipeline started for ${verseForRun.verse_key}.`
                       : "Pipeline started.",
@@ -1435,13 +1435,13 @@ export function ClipsTab() {
                 ? chapters[chapterId]
                 : undefined;
             const preferredReciter = item.preferredRecitationId
-                ? recitations.find(
+                ? (recitations.find(
                       (recitation) =>
                           String(recitation.id) === item.preferredRecitationId,
                   )?.reciter_name ??
                   RECITERS.find(
                       (reciter) => reciter.id === item.preferredRecitationId,
-                  )?.label
+                  )?.label)
                 : null;
 
             return {
@@ -1541,7 +1541,9 @@ export function ClipsTab() {
             >(res);
             if (!res.ok) {
                 throw new Error(
-                    "error" in data ? data.error ?? "Failed to run worker" : "Failed to run worker",
+                    "error" in data
+                        ? (data.error ?? "Failed to run worker")
+                        : "Failed to run worker",
                 );
             }
             if ("status" in data && data.status === "started") {
@@ -1597,11 +1599,14 @@ export function ClipsTab() {
         try {
             await audio.play();
             if (parsedEnd !== null && Number.isFinite(parsedEnd)) {
-                finderAudioPreviewTimeoutRef.current = window.setTimeout(() => {
-                    audio.pause();
-                    audio.currentTime = start;
-                    finderAudioPreviewTimeoutRef.current = null;
-                }, Math.max((parsedEnd - start) * 1000, 80));
+                finderAudioPreviewTimeoutRef.current = window.setTimeout(
+                    () => {
+                        audio.pause();
+                        audio.currentTime = start;
+                        finderAudioPreviewTimeoutRef.current = null;
+                    },
+                    Math.max((parsedEnd - start) * 1000, 80),
+                );
             }
         } catch (e) {
             toast.error(
@@ -1686,7 +1691,6 @@ export function ClipsTab() {
                                 </button>
                             </div>
                             <div className="flex w-full flex-row items-end gap-3">
-                                
                                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                                         Audio source
@@ -1749,7 +1753,10 @@ export function ClipsTab() {
                                             value={experimentReciterMode}
                                             onChange={(value) => {
                                                 setExperimentReciterMode(value);
-                                                if (finderMode === "saved" && selectedSavedAyahId) {
+                                                if (
+                                                    finderMode === "saved" &&
+                                                    selectedSavedAyahId
+                                                ) {
                                                     void updateSavedAyahPreferredRecitation(
                                                         selectedSavedAyahId,
                                                         value === "random"
@@ -1868,72 +1875,67 @@ export function ClipsTab() {
                                     </div>
                                 ) : null}
                                 <div className="flex shrink-0 items-end">
-                                    {finderAudioSourceMode === "audio" && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() =>
-                                                void previewFinderAudioTrim()
-                                            }
-                                            disabled={!finderAudioId}
-                                            className="h-11 w-11 rounded-r-none"
-                                            title="Preview trimmed audio"
-                                            aria-label="Preview trimmed audio"
-                                        >
-                                            <Play className="size-4" />
-                                        </Button>
-                                    )}
-                                    <Button
-                                        onClick={
-                                            finderMode === "random"
-                                                ? fetchRandom
-                                                : finderMode === "saved"
-                                                  ? () =>
-                                                        void fetchSavedVerse(
-                                                            selectedSavedAyahId,
-                                                        )
-                                                  : undefined
-                                        }
-                                        size={"lg"}
-                                        type={
-                                            finderMode === "specific"
-                                                ? "submit"
-                                                : "button"
-                                        }
-                                        form={
-                                            finderMode === "specific"
-                                                ? "specific-ayah-form"
-                                                : undefined
-                                        }
-                                        disabled={
-                                            finderLoading ||
-                                            (finderMode === "saved" &&
-                                                !selectedSavedAyahId)
-                                        }
+                                    <ButtonGroup
                                         className={
                                             finderAudioSourceMode === "audio"
-                                                ? "w-full rounded-l-none"
-                                                : "w-full"
-                                        }
-                                        title={
-                                            finderLoading
-                                                ? "Finding ayah"
-                                                : finderMode === "random"
-                                                  ? "Find random ayah"
-                                                  : "Find ayah"
-                                        }
-                                        aria-label={
-                                            finderLoading
-                                                ? "Finding ayah"
-                                                : finderMode === "random"
-                                                  ? "Find random ayah"
-                                                  : "Find ayah"
+                                                ? "w-full"
+                                                : undefined
                                         }
                                     >
-                                        <Search className="size-4" />
-                                        <span>Find Ayah</span>
-                                    </Button>
+                                        {finderAudioSourceMode === "audio" && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon-lg"
+                                                onClick={() =>
+                                                    void previewFinderAudioTrim()
+                                                }
+                                                disabled={!finderAudioId}
+                                                title="Preview trimmed audio"
+                                                aria-label="Preview trimmed audio"
+                                            >
+                                                <Play className="size-4" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            onClick={
+                                                finderMode === "random"
+                                                    ? fetchRandom
+                                                    : finderMode === "saved"
+                                                      ? () =>
+                                                            void fetchSavedVerse(
+                                                                selectedSavedAyahId,
+                                                            )
+                                                      : undefined
+                                            }
+                                            size="lg"
+                                            type={
+                                                finderMode === "specific"
+                                                    ? "submit"
+                                                    : "button"
+                                            }
+                                            form={
+                                                finderMode === "specific"
+                                                    ? "specific-ayah-form"
+                                                    : undefined
+                                            }
+                                            disabled={
+                                                finderLoading ||
+                                                (finderMode === "saved" &&
+                                                    !selectedSavedAyahId)
+                                            }
+                                            aria-label={
+                                                finderLoading
+                                                    ? "Finding ayah"
+                                                    : finderMode === "random"
+                                                      ? "Find random ayah"
+                                                      : "Find ayah"
+                                            }
+                                        >
+                                            <Search className="size-4" />
+                                            <span>Find Ayah</span>
+                                        </Button>
+                                    </ButtonGroup>
                                 </div>
                             </div>
                         </div>
@@ -1992,7 +1994,6 @@ export function ClipsTab() {
                                 />
                             </div>
                         )}
-
                     </div>
                 )}
 

@@ -1623,23 +1623,7 @@ export function ClipsTab() {
                                 </button>
                             </div>
                             <div className="flex w-full flex-row items-end gap-3">
-                                {finderMode === "saved" ? (
-                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Saved ayah
-                                        </Label>
-                                        <SearchableSelect
-                                            items={savedAyahOptions}
-                                            value={selectedSavedAyahId}
-                                            onChange={setSelectedSavedAyahId}
-                                            placeholder="Choose a saved ayah"
-                                            searchPlaceholder="Search saved ayaat…"
-                                            emptyLabel="No saved ayaat yet."
-                                            className="w-full min-w-0"
-                                            disabled={savedAyaat.length === 0}
-                                        />
-                                    </div>
-                                ) : null}
+                                
                                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                                         Audio source
@@ -1784,6 +1768,23 @@ export function ClipsTab() {
                                         </div>
                                     </>
                                 )}
+                                {finderMode === "saved" ? (
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                            Saved ayah
+                                        </Label>
+                                        <SearchableSelect
+                                            items={savedAyahOptions}
+                                            value={selectedSavedAyahId}
+                                            onChange={setSelectedSavedAyahId}
+                                            placeholder="Choose a saved ayah"
+                                            searchPlaceholder="Search saved ayaat…"
+                                            emptyLabel="No saved ayaat yet."
+                                            className="w-full min-w-0"
+                                            disabled={savedAyaat.length === 0}
+                                        />
+                                    </div>
+                                ) : null}
                                 <div className="flex shrink-0 items-end">
                                     <Button
                                         onClick={

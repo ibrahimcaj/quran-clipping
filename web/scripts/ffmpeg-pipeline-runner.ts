@@ -492,13 +492,13 @@ function buildVideoSequence(
 }
 
 function makeOutputFilename(
-    verseKey: string,
-    reciterName: string,
+    primaryLabel: string,
+    secondaryLabel: string,
     epochMs: number,
 ) {
-    const verseSlug = safeSlug(verseKey.replace(":", "-"));
-    const reciterSlug = safeSlug(reciterName);
-    return `${verseSlug}_${reciterSlug}_${epochMs}.mp4`;
+    const primarySlug = safeSlug(primaryLabel.replace(":", "-"));
+    const secondarySlug = safeSlug(secondaryLabel);
+    return `${primarySlug}_${secondarySlug}_${epochMs}.mp4`;
 }
 
 function cleanupIntermediateArtifacts(
@@ -1130,30 +1130,6 @@ async function main() {
             );
         }
 
-        let recitationId: string;
-        let reciterName: string;
-
-        if (existingVerseKey && existingRecitationId) {
-            recitationId = existingRecitationId;
-            reciterName =
-                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
-            await log(`Reusing reciter: ${reciterName}`);
-        } else {
-            await setStep("Choose enabled reciter");
-            const config = await db
-                .collection("configuration")
-                .findOne({ type: "reciters" });
-            const enabledIds = (
-                (config?.enabledIds as number[] | undefined) ?? []
-            ).map(String);
-            if (enabledIds.length === 0)
-                throw new Error("No enabled reciters found");
-            recitationId = chooseRandom(enabledIds);
-            reciterName =
-                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
-            await log(`Selected reciter: ${reciterName}`);
-        }
-
         const videoConfigDoc = await db
             .collection("configuration")
             .findOne({ type: "video" });
@@ -1188,56 +1164,160 @@ async function main() {
             `Unique usable video coverage: ${maxCoverageSeconds.toFixed(2)}s`,
         );
 
-        let verse: VersePayload;
-        let targetSeconds: number;
+        const textOverride = experiment.textOverride as
+            | {
+                  title?: string;
+                  subtitle?: string;
+                  titleFontSize?: number;
+                  subtitleFontSize?: number;
+                  scaleX?: number;
+                  scaleY?: number;
+                  lineSpacing?: number;
+              }
+            | null
+            | undefined;
+        const customAudioId = experiment.customAudioId as
+            | ObjectId
+            | null
+            | undefined;
+        const customAudioStartSeconds =
+            typeof experiment.customAudioStartSeconds === "number"
+                ? Math.max(0, experiment.customAudioStartSeconds)
+                : 0;
+        const customAudioEndSeconds =
+            typeof experiment.customAudioEndSeconds === "number" &&
+            Number.isFinite(experiment.customAudioEndSeconds)
+                ? Math.max(0, experiment.customAudioEndSeconds)
+                : null;
+        const hasCustomAudio = !!customAudioId;
 
-        if (existingVerseKey && existingRecitationId) {
-            await setStep("Fetch selected verse");
-            verse = await getVerseByKey(existingVerseKey, recitationId);
-            const tempAudioPath = createProbeAudioPath();
-            try {
-                await downloadFile(
-                    verseAudioUrl(existingVerseKey, recitationId),
-                    tempAudioPath,
-                );
-                if (!fs.existsSync(tempAudioPath)) {
-                    throw new Error(
-                        `Downloaded audio file not found at ${tempAudioPath}`,
-                    );
-                }
-                const stats = fs.statSync(tempAudioPath);
-                await log(`Downloaded audio: ${stats.size} bytes`);
-                if (stats.size === 0) {
-                    throw new Error(`Downloaded audio file is empty (0 bytes)`);
-                }
-                targetSeconds = await ffprobeDuration(tempAudioPath);
-            } catch (err) {
-                await log(
-                    `Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`,
-                );
-                throw err;
-            } finally {
-                if (fs.existsSync(tempAudioPath))
-                    fs.rmSync(tempAudioPath, { force: true });
+        let recitationId: string | null = null;
+        let reciterName: string | null = null;
+        let verse: VersePayload | null = null;
+        let verseKey: string | null = null;
+        let verseText: string | null = null;
+        let targetSeconds: number;
+        let audioSourcePath: string;
+        let audioTrimStartSeconds = 0;
+        let audioTrimEndSeconds: number | null = null;
+        let audioSourceLabel = "custom-audio";
+
+        if (hasCustomAudio) {
+            await setStep("Load custom audio");
+            const audioDoc = await db.collection("audios").findOne({
+                _id: customAudioId as ObjectId,
+            });
+            const filePath =
+                typeof audioDoc?.filePath === "string" ? audioDoc.filePath : "";
+            if (!filePath || !fs.existsSync(filePath)) {
+                throw new Error("Selected custom audio file was not found");
             }
+
+            const sourceDuration = await ffprobeDuration(filePath);
+            audioTrimStartSeconds = Math.min(
+                customAudioStartSeconds,
+                sourceDuration,
+            );
+            audioTrimEndSeconds =
+                customAudioEndSeconds === null
+                    ? sourceDuration
+                    : Math.min(customAudioEndSeconds, sourceDuration);
+            if (audioTrimEndSeconds <= audioTrimStartSeconds) {
+                throw new Error(
+                    "Custom audio trim end must be greater than trim start",
+                );
+            }
+
+            targetSeconds = audioTrimEndSeconds - audioTrimStartSeconds;
+            audioSourcePath = filePath;
+            audioSourceLabel =
+                (audioDoc?.name as string | undefined) ?? "custom-audio";
             await log(
-                `Using selected verse ${existingVerseKey} (${targetSeconds.toFixed(2)}s)`,
+                `Using custom audio ${audioSourceLabel} (${targetSeconds.toFixed(2)}s from ${audioTrimStartSeconds.toFixed(2)}s to ${audioTrimEndSeconds.toFixed(2)}s)`,
             );
         } else {
-            await setStep("Fetch random verse");
-            ({ verse, durationSeconds: targetSeconds } =
-                await selectRenderableVerse(
-                    recitationId,
-                    maxCoverageSeconds,
-                    randomAyahMinSeconds,
-                    randomAyahMaxSeconds,
-                    log,
-                ));
-            await log(`Selected verse ${verse.verse_key}`);
-        }
+            if (existingVerseKey && existingRecitationId) {
+                recitationId = existingRecitationId;
+                reciterName =
+                    RECITER_PATHS[recitationId]?.label ??
+                    `Reciter ${recitationId}`;
+                await log(`Reusing reciter: ${reciterName}`);
+            } else {
+                await setStep("Choose enabled reciter");
+                const config = await db
+                    .collection("configuration")
+                    .findOne({ type: "reciters" });
+                const enabledIds = (
+                    (config?.enabledIds as number[] | undefined) ?? []
+                ).map(String);
+                if (enabledIds.length === 0)
+                    throw new Error("No enabled reciters found");
+                recitationId = chooseRandom(enabledIds);
+                reciterName =
+                    RECITER_PATHS[recitationId]?.label ??
+                    `Reciter ${recitationId}`;
+                await log(`Selected reciter: ${reciterName}`);
+            }
 
-        const verseKey = verse.verse_key;
-        const verseText = verse.text_uthmani ?? null;
+            if (existingVerseKey && existingRecitationId) {
+                await setStep("Fetch selected verse");
+                verse = await getVerseByKey(existingVerseKey, recitationId!);
+                const tempAudioPath = createProbeAudioPath();
+                try {
+                    await downloadFile(
+                        verseAudioUrl(existingVerseKey, recitationId!),
+                        tempAudioPath,
+                    );
+                    if (!fs.existsSync(tempAudioPath)) {
+                        throw new Error(
+                            `Downloaded audio file not found at ${tempAudioPath}`,
+                        );
+                    }
+                    const stats = fs.statSync(tempAudioPath);
+                    await log(`Downloaded audio: ${stats.size} bytes`);
+                    if (stats.size === 0) {
+                        throw new Error(
+                            "Downloaded audio file is empty (0 bytes)",
+                        );
+                    }
+                    targetSeconds = await ffprobeDuration(tempAudioPath);
+                } catch (err) {
+                    await log(
+                        `Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                    throw err;
+                } finally {
+                    if (fs.existsSync(tempAudioPath))
+                        fs.rmSync(tempAudioPath, { force: true });
+                }
+                await log(
+                    `Using selected verse ${existingVerseKey} (${targetSeconds.toFixed(2)}s)`,
+                );
+            } else {
+                await setStep("Fetch random verse");
+                ({ verse, durationSeconds: targetSeconds } =
+                    await selectRenderableVerse(
+                        recitationId!,
+                        maxCoverageSeconds,
+                        randomAyahMinSeconds,
+                        randomAyahMaxSeconds,
+                        log,
+                    ));
+                await log(`Selected verse ${verse.verse_key}`);
+            }
+
+            verseKey = verse!.verse_key;
+            verseText = verse!.text_uthmani ?? null;
+
+            const paths = createExperimentOutputPaths(id);
+            await setStep("Download verse audio");
+            await downloadFile(
+                verseAudioUrl(verseKey, recitationId!),
+                paths.verseAudio,
+            );
+            audioSourcePath = paths.verseAudio;
+            await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
+        }
 
         await collection.updateOne(
             { _id: currentId },
@@ -1254,18 +1334,11 @@ async function main() {
 
         const paths = createExperimentOutputPaths(id);
         const outputName = makeOutputFilename(
-            verseKey,
-            reciterName,
+            verseKey ?? textOverride?.title ?? audioSourceLabel,
+            reciterName ?? "custom-audio",
             Date.now(),
         );
         const finalPath = path.join(paths.workDir, outputName);
-
-        await setStep("Download verse audio");
-        await downloadFile(
-            verseAudioUrl(verseKey, recitationId),
-            paths.verseAudio,
-        );
-        await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
 
         await setStep("Choose random video sequence");
         const videoTargetSeconds = Math.max(
@@ -1492,19 +1565,6 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const textOverride = experiment.textOverride as
-            | {
-                  title?: string;
-                  subtitle?: string;
-                  titleFontSize?: number;
-                  subtitleFontSize?: number;
-                  scaleX?: number;
-                  scaleY?: number;
-                  lineSpacing?: number;
-              }
-            | null
-            | undefined;
-
         if (textOverride?.title) {
             await setStep("Render text card overlay");
             const assPath = path.join(paths.workDir, "override.ass");
@@ -1559,10 +1619,13 @@ async function main() {
             currentVideo = paths.textOverlaid;
         }
 
-        const rawWords = [...(verse.words ?? [])].sort(
+        const rawWords = [...(verse?.words ?? [])].sort(
             (a, b) => a.position - b.position,
         );
-        const timedWords = mergeSegmentTimings(rawWords, verse.audio?.segments);
+        const timedWords = mergeSegmentTimings(
+            rawWords,
+            verse?.audio?.segments,
+        );
         const textWords = timedWords.filter(
             (w) => w.char_type_name === "word" && getOverlayWordText(w),
         );
@@ -1585,9 +1648,10 @@ async function main() {
             }
 
             // get full verse translation — QF API may omit it, fall back to public Quran.com API
-            let fullTranslation =
-                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ??
-                "";
+            const fullTranslation =
+                verse?.translations?.[0]?.text
+                    ?.replace(/<[^>]+>/g, "")
+                    .trim() ?? "";
             await log(
                 `Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 120)}"`,
             );
@@ -1789,17 +1853,27 @@ async function main() {
             currentVideo = paths.overlaid;
         }
 
-        if (operation === "mix_random_verse") {
-            await setStep("Merge Quran audio");
-            const audioInputArgs =
-                audioLeadSeconds > 0
-                    ? [
-                          "-ss",
-                          audioLeadSeconds.toFixed(3),
-                          "-i",
-                          paths.verseAudio,
-                      ]
-                    : ["-i", paths.verseAudio];
+        if (audioSourcePath) {
+            await setStep(
+                hasCustomAudio ? "Merge custom audio" : "Merge Quran audio",
+            );
+            const audioInputArgs = hasCustomAudio
+                ? [
+                      "-ss",
+                      audioTrimStartSeconds.toFixed(3),
+                      "-t",
+                      targetSeconds.toFixed(3),
+                      "-i",
+                      audioSourcePath,
+                  ]
+                : audioLeadSeconds > 0
+                  ? [
+                        "-ss",
+                        audioLeadSeconds.toFixed(3),
+                        "-i",
+                        audioSourcePath,
+                    ]
+                  : ["-i", audioSourcePath];
             const audioMapArgs =
                 clipTailSeconds > 0
                     ? [

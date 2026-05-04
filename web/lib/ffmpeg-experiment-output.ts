@@ -86,6 +86,7 @@ export function serializeExperiment(doc: Document, hasOutputFile: boolean) {
         _id: doc._id.toString(),
         lutId: doc.lutId?.toString?.() ?? doc.lutId,
         overlayId: doc.overlayId?.toString?.() ?? doc.overlayId,
+        customAudioId: doc.customAudioId?.toString?.() ?? doc.customAudioId,
         hasOutputFile,
     };
 }

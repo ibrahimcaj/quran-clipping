@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import {
+    AudioLines,
     LinkIcon,
     FileVideo,
     Video,
-    Sliders,
     ImageIcon,
     Settings2,
     PaintBucket,
@@ -18,6 +18,7 @@ const nav = [
     { title: "Stills", icon: Camera, view: "stills" },
     { title: "Settings", icon: Settings2, view: "settings" },
     { title: "Videos", icon: Video, view: "videos" },
+    { title: "Audio", icon: AudioLines, view: "audios" },
     { title: "LUTs", icon: PaintBucket, view: "luts" },
     { title: "Overlays", icon: ImageIcon, view: "overlays" },
     { title: "Accounts", icon: LinkIcon, view: "accounts" },

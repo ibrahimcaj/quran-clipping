@@ -38,7 +38,10 @@ export async function POST(req: NextRequest) {
             overlayBlendMode?: OverlayBlendMode;
             verseKey?: string | null;
             recitationId?: string | null;
-            textOverride?: { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number; scaleX?: number; scaleY?: number; lineSpacing?: number } | null;
+            textOverride?: { title?: string; subtitle?: string; titleFontSize?: number; subtitleFontSize?: number; scaleX?: number; scaleY?: number; lineSpacing?: number; uploadCaptionOverride?: string } | null;
+            customAudioId?: string | null;
+            customAudioStartSeconds?: number | null;
+            customAudioEndSeconds?: number | null;
         };
 
         if (!["pipeline", "mix_random_verse"].includes(body.operation)) {
@@ -55,6 +58,9 @@ export async function POST(req: NextRequest) {
         }
         if (body.recitationId && typeof body.recitationId !== "string") {
             return NextResponse.json({ error: "Invalid recitation id" }, { status: 400 });
+        }
+        if (body.customAudioId && !ObjectId.isValid(body.customAudioId)) {
+            return NextResponse.json({ error: "Invalid custom audio id" }, { status: 400 });
         }
         if ((body.verseKey && !body.recitationId) || (!body.verseKey && body.recitationId)) {
             return NextResponse.json({ error: "verseKey and recitationId must be provided together" }, { status: 400 });
@@ -99,6 +105,7 @@ export async function POST(req: NextRequest) {
                 scaleX: typeof body.textOverride.scaleX === "number" ? Math.max(1, Math.min(500, body.textOverride.scaleX)) : 80,
                 scaleY: typeof body.textOverride.scaleY === "number" ? Math.max(1, Math.min(500, body.textOverride.scaleY)) : 125,
                 lineSpacing: typeof body.textOverride.lineSpacing === "number" ? Math.max(-100, Math.min(200, body.textOverride.lineSpacing)) : -6,
+                uploadCaptionOverride: body.textOverride.uploadCaptionOverride?.trim() ?? "",
               }
             : null;
 
@@ -116,6 +123,16 @@ export async function POST(req: NextRequest) {
             reciterName: null,
             verseKey: body.verseKey ?? null,
             textOverride,
+            customAudioId: body.customAudioId ? new ObjectId(body.customAudioId) : null,
+            customAudioStartSeconds:
+                typeof body.customAudioStartSeconds === "number"
+                    ? Math.max(0, body.customAudioStartSeconds)
+                    : 0,
+            customAudioEndSeconds:
+                typeof body.customAudioEndSeconds === "number" &&
+                Number.isFinite(body.customAudioEndSeconds)
+                    ? Math.max(0, body.customAudioEndSeconds)
+                    : null,
             verseText: null,
             outputPath: null,
             outputName: null,

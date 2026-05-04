@@ -150,6 +150,25 @@ interface VideoAsset {
     name: string;
 }
 
+interface AudioAsset {
+    _id: string;
+    originalFilename: string;
+    name: string;
+}
+
+interface TextOverridePreset {
+    _id: string;
+    name: string;
+    title: string;
+    subtitle: string;
+    titleFontSize: number;
+    subtitleFontSize: number;
+    scaleX: number;
+    scaleY: number;
+    lineSpacing: number;
+    uploadCaptionOverride?: string;
+}
+
 interface Recitation {
     id: number;
     reciter_name: string;
@@ -187,6 +206,7 @@ interface ExperimentAsset {
         error?: string;
     }[];
     hasOutputFile?: boolean;
+    customAudioId?: string | null;
     createdAt: string;
 }
 
@@ -553,6 +573,8 @@ export function ClipsTab() {
     const [candidateRecitationId, setCandidateRecitationId] =
         useState<string>("7");
     const [videos, setVideos] = useState<VideoAsset[]>([]);
+    const [audios, setAudios] = useState<AudioAsset[]>([]);
+    const [textPresets, setTextPresets] = useState<TextOverridePreset[]>([]);
     const [experiments, setExperiments] = useState<ExperimentAsset[]>([]);
     const [chapters, setChapters] = useState<Record<number, string>>({});
     const [, setExperimentLoading] = useState<string | null>(null);
@@ -575,8 +597,11 @@ export function ClipsTab() {
         scaleX: number;
         scaleY: number;
         lineSpacing: number;
+        uploadCaptionOverride: string;
     } | null>(null);
     const [textOverrideOpen, setTextOverrideOpen] = useState(false);
+    const [selectedTextPresetId, setSelectedTextPresetId] = useState("");
+    const [textPresetName, setTextPresetName] = useState("");
     const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
     const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] =
         useState("");
@@ -590,6 +615,15 @@ export function ClipsTab() {
     const [textOverrideDraftScaleY, setTextOverrideDraftScaleY] = useState(125);
     const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] =
         useState(-6);
+    const [
+        textOverrideDraftUploadCaptionOverride,
+        setTextOverrideDraftUploadCaptionOverride,
+    ] = useState("");
+    const [savingTextPreset, setSavingTextPreset] = useState(false);
+    const [deletingTextPreset, setDeletingTextPreset] = useState(false);
+    const [selectedCustomAudioId, setSelectedCustomAudioId] = useState("");
+    const [customAudioStartSeconds, setCustomAudioStartSeconds] = useState(0);
+    const [customAudioEndSeconds, setCustomAudioEndSeconds] = useState("");
 
     useEffect(() => {
         async function loadAssets() {
@@ -597,6 +631,8 @@ export function ClipsTab() {
             try {
                 const [
                     videosRes,
+                    audiosRes,
+                    textPresetsRes,
                     experimentsRes,
                     chaptersRes,
                     reciterCfgRes,
@@ -605,6 +641,8 @@ export function ClipsTab() {
                     savedAyaatRes,
                 ] = await Promise.all([
                     fetch("/api/videos"),
+                    fetch("/api/audios"),
+                    fetch("/api/text-overrides"),
                     fetch("/api/ffmpeg/experiments"),
                     fetch("/api/qf/chapters"),
                     fetch("/api/configuration/reciters"),
@@ -615,6 +653,12 @@ export function ClipsTab() {
                 const videosData = await readJson<VideoAsset[] | { error?: string }>(
                     videosRes,
                 );
+                const audiosData = await readJson<
+                    AudioAsset[] | { error?: string }
+                >(audiosRes);
+                const textPresetsData = await readJson<
+                    TextOverridePreset[] | { error?: string }
+                >(textPresetsRes);
                 const experimentsData = await readJson<
                     ExperimentAsset[] | { error?: string }
                 >(experimentsRes);
@@ -649,6 +693,12 @@ export function ClipsTab() {
                 if ("error" in videosData && videosData.error) {
                     throw new Error(videosData.error);
                 }
+                if ("error" in audiosData && audiosData.error) {
+                    throw new Error(audiosData.error);
+                }
+                if ("error" in textPresetsData && textPresetsData.error) {
+                    throw new Error(textPresetsData.error);
+                }
                 if ("error" in experimentsData && experimentsData.error) {
                     throw new Error(experimentsData.error);
                 }
@@ -660,6 +710,10 @@ export function ClipsTab() {
                 }
 
                 setVideos(ensureArray<VideoAsset>(videosData));
+                setAudios(ensureArray<AudioAsset>(audiosData));
+                setTextPresets(
+                    ensureArray<TextOverridePreset>(textPresetsData),
+                );
                 setExperiments(ensureArray<ExperimentAsset>(experimentsData));
                 setRecitations(
                     [...(reciterData.recitations ?? [])].sort((a, b) =>
@@ -713,8 +767,8 @@ export function ClipsTab() {
                     const detail = await readJson<
                         ExperimentAsset | { error?: string }
                     >(detailRes);
-                    if (!("error" in detail)) {
-                        setSelectedExperiment(detail);
+                    if (!Array.isArray(detail) && !("error" in detail)) {
+                        setSelectedExperiment(detail as ExperimentAsset);
                     }
                 }
             } catch {
@@ -893,6 +947,8 @@ export function ClipsTab() {
     }
 
     function openTextOverrideDialog() {
+        setSelectedTextPresetId("");
+        setTextPresetName("");
         setTextOverrideDraftTitle(textOverride?.title ?? "");
         setTextOverrideDraftSubtitle(textOverride?.subtitle ?? "");
         setTextOverrideDraftTitleFontSize(textOverride?.titleFontSize ?? 36);
@@ -902,7 +958,94 @@ export function ClipsTab() {
         setTextOverrideDraftScaleX(textOverride?.scaleX ?? 80);
         setTextOverrideDraftScaleY(textOverride?.scaleY ?? 125);
         setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? -6);
+        setTextOverrideDraftUploadCaptionOverride(
+            textOverride?.uploadCaptionOverride ?? "",
+        );
         setTextOverrideOpen(true);
+    }
+
+    function applyTextPreset(presetId: string) {
+        const preset = textPresets.find((item) => item._id === presetId);
+        if (!preset) return;
+        setSelectedTextPresetId(presetId);
+        setTextPresetName(preset.name);
+        setTextOverrideDraftTitle(preset.title);
+        setTextOverrideDraftSubtitle(preset.subtitle);
+        setTextOverrideDraftTitleFontSize(preset.titleFontSize);
+        setTextOverrideDraftSubtitleFontSize(preset.subtitleFontSize);
+        setTextOverrideDraftScaleX(preset.scaleX);
+        setTextOverrideDraftScaleY(preset.scaleY);
+        setTextOverrideDraftLineSpacing(preset.lineSpacing);
+        setTextOverrideDraftUploadCaptionOverride(
+            preset.uploadCaptionOverride ?? "",
+        );
+    }
+
+    async function saveTextPreset() {
+        const title = textOverrideDraftTitle.trim();
+        const name = textPresetName.trim();
+        if (!name || !title) {
+            toast.error("Preset name and title are required.");
+            return;
+        }
+
+        setSavingTextPreset(true);
+        try {
+            const res = await fetch("/api/text-overrides", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name,
+                    title,
+                    subtitle: textOverrideDraftSubtitle.trim(),
+                    titleFontSize: textOverrideDraftTitleFontSize,
+                    subtitleFontSize: textOverrideDraftSubtitleFontSize,
+                    scaleX: textOverrideDraftScaleX,
+                    scaleY: textOverrideDraftScaleY,
+                    lineSpacing: textOverrideDraftLineSpacing,
+                    uploadCaptionOverride:
+                        textOverrideDraftUploadCaptionOverride.trim(),
+                }),
+            });
+            const data = JSON.parse(await res.text());
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to save text preset");
+            }
+            setTextPresets((current) => [data, ...current]);
+            setSelectedTextPresetId(data._id);
+            toast.success("Text preset saved.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        } finally {
+            setSavingTextPreset(false);
+        }
+    }
+
+    async function deleteTextPreset() {
+        if (!selectedTextPresetId) return;
+        setDeletingTextPreset(true);
+        try {
+            const res = await fetch(
+                `/api/text-overrides/${selectedTextPresetId}`,
+                {
+                    method: "DELETE",
+                },
+            );
+            const data = JSON.parse(await res.text());
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to delete text preset");
+            }
+            setTextPresets((current) =>
+                current.filter((item) => item._id !== selectedTextPresetId),
+            );
+            setSelectedTextPresetId("");
+            setTextPresetName("");
+            toast.success("Text preset deleted.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        } finally {
+            setDeletingTextPreset(false);
+        }
     }
 
     function applyTextOverride() {
@@ -917,6 +1060,8 @@ export function ClipsTab() {
                       scaleX: textOverrideDraftScaleX,
                       scaleY: textOverrideDraftScaleY,
                       lineSpacing: textOverrideDraftLineSpacing,
+                      uploadCaptionOverride:
+                          textOverrideDraftUploadCaptionOverride.trim(),
                   }
                 : null,
         );
@@ -943,6 +1088,16 @@ export function ClipsTab() {
         const verseForRun = options?.verse ?? selectedVerseForRender;
         const recitationIdForRun =
             options?.recitationId ?? candidateRecitationId;
+        const customAudioIdForRun = verseForRun ? null : selectedCustomAudioId;
+        const parsedCustomAudioEnd =
+            customAudioEndSeconds.trim().length > 0
+                ? Number(customAudioEndSeconds)
+                : null;
+        const customAudioEndForRun =
+            typeof parsedCustomAudioEnd === "number" &&
+            Number.isFinite(parsedCustomAudioEnd)
+                ? parsedCustomAudioEnd
+                : null;
 
         setExperimentLoading(operation);
         try {
@@ -954,6 +1109,13 @@ export function ClipsTab() {
                     verseKey: verseForRun?.verse_key ?? null,
                     recitationId: verseForRun ? recitationIdForRun : null,
                     textOverride: textOverride ?? null,
+                    customAudioId: customAudioIdForRun || null,
+                    customAudioStartSeconds: customAudioIdForRun
+                        ? customAudioStartSeconds
+                        : null,
+                    customAudioEndSeconds: customAudioIdForRun
+                        ? customAudioEndForRun
+                        : null,
                 }),
             });
             const data = JSON.parse(await res.text());
@@ -964,8 +1126,13 @@ export function ClipsTab() {
             }
             setExperiments((current) => [data, ...current].slice(0, 20));
             setTextOverride(null);
+            setSelectedCustomAudioId("");
+            setCustomAudioStartSeconds(0);
+            setCustomAudioEndSeconds("");
             toast.success(
-                verseForRun
+                customAudioIdForRun
+                    ? "Custom clip started."
+                    : verseForRun
                     ? `Pipeline started for ${verseForRun.verse_key}.`
                     : "Pipeline started.",
             );
@@ -1191,6 +1358,31 @@ export function ClipsTab() {
             };
         });
     }, [chapters, savedAyaat]);
+
+    const textPresetOptions = useMemo(
+        () =>
+            textPresets.map((preset) => ({
+                value: preset._id,
+                label: preset.name,
+                subtitle: preset.title,
+            })),
+        [textPresets],
+    );
+
+    const customAudioOptions = useMemo(
+        () =>
+            audios.map((audio) => ({
+                value: audio._id,
+                label: audio.name,
+                subtitle: audio.originalFilename,
+            })),
+        [audios],
+    );
+
+    const selectedCustomAudio = useMemo(
+        () => audios.find((audio) => audio._id === selectedCustomAudioId) ?? null,
+        [audios, selectedCustomAudioId],
+    );
 
     const candidateVerseIsSaved = useMemo(
         () =>
@@ -1503,6 +1695,142 @@ export function ClipsTab() {
                                 />
                             </div>
                         )}
+
+                        <div className="flex flex-col gap-4 border-t pt-5">
+                            <div className="rounded-lg border bg-card p-4">
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="text-sm font-medium">
+                                                Custom clip
+                                            </h2>
+                                            <p className="text-sm text-muted-foreground">
+                                                Render uploaded audio with saved
+                                                custom text instead of a Quran
+                                                verse.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant={
+                                                textOverride
+                                                    ? "default"
+                                                    : "outline"
+                                            }
+                                            onClick={openTextOverrideDialog}
+                                            className="shrink-0"
+                                        >
+                                            <Type className="mr-2 size-4" />
+                                            {textOverride
+                                                ? "Edit text"
+                                                : "Set text"}
+                                        </Button>
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_120px_120px_auto] md:items-end">
+                                        <div className="flex min-w-0 flex-col gap-1.5">
+                                            <Label>Custom audio</Label>
+                                            <SearchableSelect
+                                                items={customAudioOptions}
+                                                value={selectedCustomAudioId}
+                                                onChange={(value) => {
+                                                    setSelectedCustomAudioId(
+                                                        value,
+                                                    );
+                                                    setCustomAudioStartSeconds(
+                                                        0,
+                                                    );
+                                                    setCustomAudioEndSeconds(
+                                                        "",
+                                                    );
+                                                }}
+                                                placeholder="Choose uploaded audio"
+                                                searchPlaceholder="Search audio…"
+                                                emptyLabel="No audio uploaded yet."
+                                                className="w-full"
+                                                disabled={
+                                                    customAudioOptions.length ===
+                                                    0
+                                                }
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <Label>Trim start</Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step={0.1}
+                                                value={customAudioStartSeconds}
+                                                onChange={(e) =>
+                                                    setCustomAudioStartSeconds(
+                                                        Math.max(
+                                                            0,
+                                                            Number(
+                                                                e.target.value,
+                                                            ) || 0,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <Label>Trim end</Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step={0.1}
+                                                value={customAudioEndSeconds}
+                                                onChange={(e) =>
+                                                    setCustomAudioEndSeconds(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Full length"
+                                            />
+                                        </div>
+                                        <Button
+                                            onClick={() =>
+                                                void runExperiment("pipeline", {
+                                                    verse: null,
+                                                    recitationId: null,
+                                                })
+                                            }
+                                            disabled={
+                                                !selectedCustomAudioId ||
+                                                !textOverride?.title
+                                            }
+                                            className="w-full md:w-auto"
+                                        >
+                                            Generate custom clip
+                                        </Button>
+                                    </div>
+
+                                    {selectedCustomAudio && (
+                                        <div className="rounded-md border bg-background/60 p-3">
+                                            <p className="truncate text-sm font-medium">
+                                                {selectedCustomAudio.name}
+                                            </p>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                {
+                                                    selectedCustomAudio.originalFilename
+                                                }
+                                            </p>
+                                            <audio
+                                                controls
+                                                preload="metadata"
+                                                src={`/api/audios/${selectedCustomAudio._id}/file`}
+                                                className="mt-3 w-full"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <p className="text-xs text-muted-foreground">
+                                        {textOverride?.title
+                                            ? `Using title: ${textOverride.title}`
+                                            : "Set a text override title before generating a custom clip."}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1750,11 +2078,35 @@ export function ClipsTab() {
             </div>
 
             <Dialog open={textOverrideOpen} onOpenChange={setTextOverrideOpen}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Text override</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col gap-4 pt-2">
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Saved preset</Label>
+                                <SearchableSelect
+                                    items={textPresetOptions}
+                                    value={selectedTextPresetId}
+                                    onChange={applyTextPreset}
+                                    placeholder="Load a saved text preset"
+                                    searchPlaceholder="Search presets…"
+                                    emptyLabel="No text presets yet."
+                                    className="w-full"
+                                    disabled={textPresetOptions.length === 0}
+                                />
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => void deleteTextPreset()}
+                                disabled={
+                                    !selectedTextPresetId || deletingTextPreset
+                                }
+                            >
+                                Delete preset
+                            </Button>
+                        </div>
                         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
                             <div className="flex flex-col gap-1.5">
                                 <Label>Title</Label>
@@ -1861,6 +2213,38 @@ export function ClipsTab() {
                                     }
                                 />
                             </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label>Upload caption override</Label>
+                            <Textarea
+                                value={textOverrideDraftUploadCaptionOverride}
+                                onChange={(e) =>
+                                    setTextOverrideDraftUploadCaptionOverride(
+                                        e.target.value,
+                                    )
+                                }
+                                placeholder="Optional caption used when uploading this clip…"
+                                rows={3}
+                            />
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Save as preset</Label>
+                                <Input
+                                    value={textPresetName}
+                                    onChange={(e) =>
+                                        setTextPresetName(e.target.value)
+                                    }
+                                    placeholder="Preset name"
+                                />
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => void saveTextPreset()}
+                                disabled={savingTextPreset}
+                            >
+                                Save preset
+                            </Button>
                         </div>
                         <div className="flex justify-end gap-2">
                             {textOverride && (

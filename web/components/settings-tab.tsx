@@ -615,6 +615,14 @@ export function SettingsTab() {
             subtitle: account.type,
             image: account.icon,
         }));
+    const copyConfigSourceItems = [
+        {
+            value: "__global__",
+            label: "Global defaults",
+            subtitle: "Shared base configuration",
+        },
+        ...copySourceItems,
+    ];
 
     return (
         <div className="flex flex-col gap-8 w-full">
@@ -698,12 +706,12 @@ export function SettingsTab() {
                                 <TableCell className="whitespace-normal align-top">
                                     <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row">
                                         <SearchableSelect
-                                            items={copySourceItems}
+                                            items={copyConfigSourceItems}
                                             value={copySourceAccountId}
                                             onChange={setCopySourceAccountId}
-                                            placeholder="Select source account"
-                                            searchPlaceholder="Search source accounts…"
-                                            emptyLabel="No other accounts found."
+                                            placeholder="Select source config"
+                                            searchPlaceholder="Search source configs…"
+                                            emptyLabel="No other configs found."
                                             className="w-full"
                                         />
                                         <Button
@@ -874,7 +882,7 @@ export function SettingsTab() {
                                                 workerUploadIntervalMinutes: next,
                                             });
                                         }}
-                                        className="w-full sm:max-w-40"
+                                        className="w-full"
                                     />
                                 </div>
                             </TableCell>
@@ -988,71 +996,76 @@ export function SettingsTab() {
                                 </div>
                             </TableCell>
                             <TableCell className="whitespace-normal align-top">
-                                <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-end">
-                                    <div className="flex w-full min-w-0 flex-col gap-1.5 sm:max-w-28">
-                                        <Label
-                                            htmlFor="random-ayah-min"
-                                            className="text-xs text-muted-foreground"
-                                        >
-                                            Min
-                                        </Label>
-                                        <Input
-                                            id="random-ayah-min"
-                                            type="number"
-                                            min={0}
-                                            max={300}
-                                            step={0.1}
-                                            value={randomAyahMinSeconds}
-                                            onChange={(e) => {
-                                                const next = Number(
-                                                    e.target.value,
-                                                );
-                                                setRandomAyahMinSeconds(next);
-                                                saveVideoConfig({
-                                                    randomAyahMinSeconds:
-                                                        Number.isFinite(next)
-                                                            ? next
-                                                            : 0,
-                                                });
-                                            }}
-                                            className="w-full"
-                                        />
+                                <div className="flex w-full min-w-0 flex-col gap-3">
+                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-end">
+                                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                                            <Label
+                                                htmlFor="random-ayah-min"
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                Min
+                                            </Label>
+                                            <Input
+                                                id="random-ayah-min"
+                                                type="number"
+                                                min={0}
+                                                max={300}
+                                                step={0.1}
+                                                value={randomAyahMinSeconds}
+                                                onChange={(e) => {
+                                                    const next = Number(
+                                                        e.target.value,
+                                                    );
+                                                    setRandomAyahMinSeconds(next);
+                                                    saveVideoConfig({
+                                                        randomAyahMinSeconds:
+                                                            Number.isFinite(next)
+                                                                ? next
+                                                                : 0,
+                                                    });
+                                                }}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div className="hidden h-9 items-center text-muted-foreground sm:flex">
+                                            <ArrowRight className="size-4" />
+                                        </div>
+                                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                                            <Label
+                                                htmlFor="random-ayah-max"
+                                                className="text-xs text-muted-foreground"
+                                            >
+                                                Max
+                                            </Label>
+                                            <Input
+                                                id="random-ayah-max"
+                                                type="number"
+                                                min={0}
+                                                max={300}
+                                                step={0.1}
+                                                value={randomAyahMaxSeconds}
+                                                onChange={(e) => {
+                                                    const next = Number(
+                                                        e.target.value,
+                                                    );
+                                                    setRandomAyahMaxSeconds(next);
+                                                    saveVideoConfig({
+                                                        randomAyahMaxSeconds:
+                                                            Number.isFinite(next)
+                                                                ? next
+                                                                : 30,
+                                                    });
+                                                }}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div className="hidden h-9 items-center text-xs text-muted-foreground sm:flex">
+                                            seconds
+                                        </div>
                                     </div>
-                                    <div className="hidden h-9 items-center pb-2 text-muted-foreground sm:flex">
-                                        <ArrowRight className="size-4" />
-                                    </div>
-                                    <div className="flex w-full min-w-0 flex-col gap-1.5 sm:max-w-28">
-                                        <Label
-                                            htmlFor="random-ayah-max"
-                                            className="text-xs text-muted-foreground"
-                                        >
-                                            Max
-                                        </Label>
-                                        <Input
-                                            id="random-ayah-max"
-                                            type="number"
-                                            min={0}
-                                            max={300}
-                                            step={0.1}
-                                            value={randomAyahMaxSeconds}
-                                            onChange={(e) => {
-                                                const next = Number(
-                                                    e.target.value,
-                                                );
-                                                setRandomAyahMaxSeconds(next);
-                                                saveVideoConfig({
-                                                    randomAyahMaxSeconds:
-                                                        Number.isFinite(next)
-                                                            ? next
-                                                            : 30,
-                                                });
-                                            }}
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <span className="text-xs text-muted-foreground sm:pb-2">
+                                    <div className="text-xs text-muted-foreground sm:hidden">
                                         seconds
-                                    </span>
+                                    </div>
                                 </div>
                             </TableCell>
                         </TableRow>
@@ -1060,10 +1073,84 @@ export function SettingsTab() {
                             <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
-                                        Text opacity
+                                        Text color and stroke
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        Base opacity for rendered text cards.
+                                        Configure the main text color and optional stroke.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-color"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Text color
+                                        </Label>
+                                        <Input
+                                            id="text-color"
+                                            value={textColor}
+                                            onChange={(e) => {
+                                                const next = e.target.value;
+                                                setTextColor(next);
+                                                saveVideoConfig({ textColor: next });
+                                            }}
+                                            placeholder="#FFFFFF"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-stroke-width"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Stroke width
+                                        </Label>
+                                        <Input
+                                            id="text-stroke-width"
+                                            type="number"
+                                            min={0}
+                                            max={20}
+                                            step={0.5}
+                                            value={textStrokeWidth}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 0;
+                                                setTextStrokeWidth(next);
+                                                saveVideoConfig({ textStrokeWidth: next });
+                                            }}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-stroke-color"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Stroke color
+                                        </Label>
+                                        <Input
+                                            id="text-stroke-color"
+                                            value={textStrokeColor}
+                                            onChange={(e) => {
+                                                const next = e.target.value;
+                                                setTextStrokeColor(next);
+                                                saveVideoConfig({ textStrokeColor: next });
+                                            }}
+                                            placeholder="#000000"
+                                        />
+                                    </div>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Text color and stroke
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Configure the main text color and optional stroke.
                                     </p>
                                 </div>
                             </TableCell>
@@ -1082,53 +1169,7 @@ export function SettingsTab() {
                                             setTextOpacity(next);
                                             saveVideoConfig({ textOpacity: next });
                                         }}
-                                    />
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                        <TableRow className="border-b">
-                            <TableCell className="whitespace-normal align-top">
-                                <div className="flex flex-col gap-1">
-                                    <p className="font-medium text-sm">
-                                        Text color and stroke
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Configure the main text color and optional stroke.
-                                    </p>
-                                </div>
-                            </TableCell>
-                            <TableCell className="whitespace-normal align-top">
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <Input
-                                        value={textColor}
-                                        onChange={(e) => {
-                                            const next = e.target.value;
-                                            setTextColor(next);
-                                            saveVideoConfig({ textColor: next });
-                                        }}
-                                        placeholder="#FFFFFF"
-                                    />
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        max={20}
-                                        step={0.5}
-                                        value={textStrokeWidth}
-                                        onChange={(e) => {
-                                            const next = Number(e.target.value) || 0;
-                                            setTextStrokeWidth(next);
-                                            saveVideoConfig({ textStrokeWidth: next });
-                                        }}
-                                        placeholder="Stroke width"
-                                    />
-                                    <Input
-                                        value={textStrokeColor}
-                                        onChange={(e) => {
-                                            const next = e.target.value;
-                                            setTextStrokeColor(next);
-                                            saveVideoConfig({ textStrokeColor: next });
-                                        }}
-                                        placeholder="#000000"
+                                        className="w-full"
                                     />
                                 </div>
                             </TableCell>
@@ -1146,161 +1187,224 @@ export function SettingsTab() {
                             </TableCell>
                             <TableCell className="whitespace-normal align-top">
                                 <div className="grid gap-3 sm:grid-cols-3">
-                                    <Input
-                                        value={textGlowColor}
-                                        onChange={(e) => {
-                                            const next = e.target.value;
-                                            setTextGlowColor(next);
-                                            saveVideoConfig({ textGlowColor: next });
-                                        }}
-                                        placeholder="#0E3A72"
-                                    />
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        max={1}
-                                        step={0.01}
-                                        value={textGlowAlpha}
-                                        onChange={(e) => {
-                                            const next = Number(e.target.value) || 0;
-                                            setTextGlowAlpha(next);
-                                            saveVideoConfig({ textGlowAlpha: next });
-                                        }}
-                                        placeholder="Glow alpha"
-                                    />
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        max={300}
-                                        step={1}
-                                        value={textGlowSigma}
-                                        onChange={(e) => {
-                                            const next = Number(e.target.value) || 0;
-                                            setTextGlowSigma(next);
-                                            saveVideoConfig({ textGlowSigma: next });
-                                        }}
-                                        placeholder="Glow blur"
-                                    />
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-glow-color"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Glow color
+                                        </Label>
+                                        <Input
+                                            id="text-glow-color"
+                                            value={textGlowColor}
+                                            onChange={(e) => {
+                                                const next = e.target.value;
+                                                setTextGlowColor(next);
+                                                saveVideoConfig({ textGlowColor: next });
+                                            }}
+                                            placeholder="#0E3A72"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-glow-alpha"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Glow alpha
+                                        </Label>
+                                        <Input
+                                            id="text-glow-alpha"
+                                            type="number"
+                                            min={0}
+                                            max={1}
+                                            step={0.01}
+                                            value={textGlowAlpha}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 0;
+                                                setTextGlowAlpha(next);
+                                                saveVideoConfig({ textGlowAlpha: next });
+                                            }}
+                                            placeholder="1"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-glow-sigma"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Glow blur
+                                        </Label>
+                                        <Input
+                                            id="text-glow-sigma"
+                                            type="number"
+                                            min={0}
+                                            max={300}
+                                            step={1}
+                                            value={textGlowSigma}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 0;
+                                                setTextGlowSigma(next);
+                                                saveVideoConfig({ textGlowSigma: next });
+                                            }}
+                                            placeholder="100"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        max={1}
-                                        step={0.01}
-                                        value={textInnerGlowAlpha}
-                                        onChange={(e) => {
-                                            const next = Number(e.target.value) || 0;
-                                            setTextInnerGlowAlpha(next);
-                                            saveVideoConfig({ textInnerGlowAlpha: next });
-                                        }}
-                                        placeholder="Inner glow alpha"
-                                    />
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        max={300}
-                                        step={1}
-                                        value={textInnerGlowSigma}
-                                        onChange={(e) => {
-                                            const next = Number(e.target.value) || 0;
-                                            setTextInnerGlowSigma(next);
-                                            saveVideoConfig({ textInnerGlowSigma: next });
-                                        }}
-                                        placeholder="Inner glow blur"
-                                    />
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-inner-glow-alpha"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Inner glow alpha
+                                        </Label>
+                                        <Input
+                                            id="text-inner-glow-alpha"
+                                            type="number"
+                                            min={0}
+                                            max={1}
+                                            step={0.01}
+                                            value={textInnerGlowAlpha}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 0;
+                                                setTextInnerGlowAlpha(next);
+                                                saveVideoConfig({ textInnerGlowAlpha: next });
+                                            }}
+                                            placeholder="0.7"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-inner-glow-sigma"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Inner glow blur
+                                        </Label>
+                                        <Input
+                                            id="text-inner-glow-sigma"
+                                            type="number"
+                                            min={0}
+                                            max={300}
+                                            step={1}
+                                            value={textInnerGlowSigma}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 0;
+                                                setTextInnerGlowSigma(next);
+                                                saveVideoConfig({ textInnerGlowSigma: next });
+                                            }}
+                                            placeholder="6"
+                                        />
+                                    </div>
                                 </div>
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">
                             <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
-                                    <p className="font-medium text-sm">
-                                        Allowed videos
+                                    <p className="text-sm font-medium">
+                                        Allowed assets
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        Use all videos or restrict this config to specific uploaded videos.
+                                        Choose whether this config can use all
+                                        uploaded videos and LUTs or only a
+                                        specific selection.
                                     </p>
                                 </div>
                             </TableCell>
                             <TableCell className="whitespace-normal align-top">
-                                <div className="flex w-full min-w-0 flex-col gap-3">
-                                    <SearchableSelect
-                                        items={[
-                                            { value: "all", label: "All videos" },
-                                            { value: "specific", label: "Specific videos only" },
-                                        ]}
-                                        value={videoSelectionMode}
-                                        onChange={(value) => {
-                                            setVideoSelectionMode(value);
-                                            saveVideoConfig({ videoSelectionMode: value });
-                                        }}
-                                        placeholder="Select video mode"
-                                        searchPlaceholder="Search modes…"
-                                        emptyLabel="No modes found."
-                                        className="w-full"
-                                    />
-                                    {videoSelectionMode === "specific" && (
-                                        <AssetMultiSelect
-                                            items={videos.map((video) => ({
-                                                id: video._id,
-                                                label: video.name,
-                                                subtitle: video.originalFilename,
-                                            }))}
-                                            value={selectedVideoIds}
-                                            onChange={(next) => {
-                                                setSelectedVideoIds(next);
-                                                saveVideoConfig({ selectedVideoIds: next });
+                                <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
+                                    <div className="flex min-w-0 flex-col gap-3">
+                                        <Label className="text-xs text-muted-foreground">
+                                            Videos
+                                        </Label>
+                                        <SearchableSelect
+                                            items={[
+                                                {
+                                                    value: "all",
+                                                    label: "All videos",
+                                                },
+                                                {
+                                                    value: "specific",
+                                                    label: "Specific videos only",
+                                                },
+                                            ]}
+                                            value={videoSelectionMode}
+                                            onChange={(value) => {
+                                                setVideoSelectionMode(value);
+                                                saveVideoConfig({
+                                                    videoSelectionMode: value,
+                                                });
                                             }}
-                                            placeholder="Select videos"
+                                            placeholder="Select video mode"
+                                            searchPlaceholder="Search modes…"
+                                            emptyLabel="No modes found."
+                                            className="w-full"
                                         />
-                                    )}
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                        <TableRow className="border-b">
-                            <TableCell className="whitespace-normal align-top">
-                                <div className="flex flex-col gap-1">
-                                    <p className="font-medium text-sm">
-                                        Allowed LUTs
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Use all LUTs or restrict this config to specific LUTs.
-                                    </p>
-                                </div>
-                            </TableCell>
-                            <TableCell className="whitespace-normal align-top">
-                                <div className="flex w-full min-w-0 flex-col gap-3">
-                                    <SearchableSelect
-                                        items={[
-                                            { value: "all", label: "All LUTs" },
-                                            { value: "specific", label: "Specific LUTs only" },
-                                        ]}
-                                        value={lutSelectionMode}
-                                        onChange={(value) => {
-                                            setLutSelectionMode(value);
-                                            saveVideoConfig({ lutSelectionMode: value });
-                                        }}
-                                        placeholder="Select LUT mode"
-                                        searchPlaceholder="Search modes…"
-                                        emptyLabel="No modes found."
-                                        className="w-full"
-                                    />
-                                    {lutSelectionMode === "specific" && (
-                                        <AssetMultiSelect
-                                            items={luts.map((lut) => ({
-                                                id: lut._id,
-                                                label: lut.name,
-                                                subtitle: lut.originalFilename,
-                                            }))}
-                                            value={selectedLutIds}
-                                            onChange={(next) => {
-                                                setSelectedLutIds(next);
-                                                saveVideoConfig({ selectedLutIds: next });
+                                        {videoSelectionMode === "specific" && (
+                                            <AssetMultiSelect
+                                                items={videos.map((video) => ({
+                                                    id: video._id,
+                                                    label: video.name,
+                                                    subtitle:
+                                                        video.originalFilename,
+                                                }))}
+                                                value={selectedVideoIds}
+                                                onChange={(next) => {
+                                                    setSelectedVideoIds(next);
+                                                    saveVideoConfig({
+                                                        selectedVideoIds: next,
+                                                    });
+                                                }}
+                                                placeholder="Select videos"
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex min-w-0 flex-col gap-3">
+                                        <Label className="text-xs text-muted-foreground">
+                                            LUTs
+                                        </Label>
+                                        <SearchableSelect
+                                            items={[
+                                                {
+                                                    value: "all",
+                                                    label: "All LUTs",
+                                                },
+                                                {
+                                                    value: "specific",
+                                                    label: "Specific LUTs only",
+                                                },
+                                            ]}
+                                            value={lutSelectionMode}
+                                            onChange={(value) => {
+                                                setLutSelectionMode(value);
+                                                saveVideoConfig({
+                                                    lutSelectionMode: value,
+                                                });
                                             }}
-                                            placeholder="Select LUTs"
+                                            placeholder="Select LUT mode"
+                                            searchPlaceholder="Search modes…"
+                                            emptyLabel="No modes found."
+                                            className="w-full"
                                         />
-                                    )}
+                                        {lutSelectionMode === "specific" && (
+                                            <AssetMultiSelect
+                                                items={luts.map((lut) => ({
+                                                    id: lut._id,
+                                                    label: lut.name,
+                                                    subtitle:
+                                                        lut.originalFilename,
+                                                }))}
+                                                value={selectedLutIds}
+                                                onChange={(next) => {
+                                                    setSelectedLutIds(next);
+                                                    saveVideoConfig({
+                                                        selectedLutIds: next,
+                                                    });
+                                                }}
+                                                placeholder="Select LUTs"
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             </TableCell>
                         </TableRow>

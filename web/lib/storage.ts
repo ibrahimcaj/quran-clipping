@@ -7,6 +7,7 @@ export const VIDEOS_DIR = path.join(ROOT, "videos");
 export const VIDEO_UPLOADS_DIR = path.join(ROOT, "video-uploads");
 export const LUTS_DIR = path.join(ROOT, "luts");
 export const OVERLAYS_DIR = path.join(ROOT, "overlays");
+export const AUDIOS_DIR = path.join(ROOT, "audios");
 export const EXPERIMENTS_DIR = path.join(ROOT, "experiments");
 export const PREPARED_VIDEOS_DIR = path.join(ROOT, "prepared-videos");
 export const LUT_PREVIEWS_DIR = path.join(ROOT, "lut-previews");
@@ -25,6 +26,14 @@ const VIDEO_EXTS: Record<string, string> = {
 };
 
 const LUT_EXTS = new Set([".cube", ".3dl", ".look", ".lut"]);
+const AUDIO_EXTS: Record<string, string> = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".ogg": "audio/ogg",
+    ".flac": "audio/flac",
+};
 const IMAGE_EXTS: Record<string, string> = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -49,6 +58,15 @@ export function getSafeLutExtension(filename: string): string | null {
 export function getSafeImageExtension(filename: string): string | null {
     const ext = path.extname(filename).toLowerCase();
     return IMAGE_EXTS[ext] ? ext : null;
+}
+
+export function getSafeAudioExtension(filename: string): string | null {
+    const ext = path.extname(filename).toLowerCase();
+    return AUDIO_EXTS[ext] ? ext : null;
+}
+
+export function getAudioMimeType(filePath: string): string {
+    return AUDIO_EXTS[path.extname(filePath).toLowerCase()] ?? "audio/mpeg";
 }
 
 export function getImageMimeType(filePath: string): string {

@@ -439,7 +439,17 @@ export async function POST(
         const reciterName =
             typeof resolved.doc.reciterName === "string"
                 ? resolved.doc.reciterName
-                : "Unknown reciter";
+                : "";
+        const overrideTitle =
+            typeof resolved.doc.textOverride?.title === "string"
+                ? resolved.doc.textOverride.title.trim()
+                : "";
+        const uploadCaptionOverride =
+            typeof resolved.doc.textOverride?.uploadCaptionOverride ===
+                "string" &&
+            resolved.doc.textOverride.uploadCaptionOverride.trim().length > 0
+                ? resolved.doc.textOverride.uploadCaptionOverride
+                : "";
         const [chapterRaw] = verseKey.split(":");
         const chapterId = Number.parseInt(chapterRaw ?? "", 10);
         const surahName = Number.isFinite(chapterId)
@@ -450,18 +460,20 @@ export async function POST(
             .collection("configuration")
             .findOne({ type: "video" });
         const captionTemplate =
-            typeof videoConfig?.uploadCaptionTemplate === "string" &&
+            uploadCaptionOverride ||
+            (typeof videoConfig?.uploadCaptionTemplate === "string" &&
             videoConfig.uploadCaptionTemplate.trim().length > 0
                 ? videoConfig.uploadCaptionTemplate
-                : DEFAULT_UPLOAD_CAPTION_TEMPLATE;
+                : DEFAULT_UPLOAD_CAPTION_TEMPLATE);
         const caption = formatUploadCaption(captionTemplate, {
             verseKey,
             surahName,
             reciterName,
         });
-        const title = [verseKey, surahName, reciterName]
-            .filter(Boolean)
-            .join(" ");
+        const title =
+            [verseKey, surahName, reciterName].filter(Boolean).join(" ") ||
+            overrideTitle ||
+            "Custom clip";
 
         const results: UploadResult[] = [];
         await appendLog(

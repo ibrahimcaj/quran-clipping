@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ArrowRight, Check, ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -39,6 +40,13 @@ interface OverlayAsset {
     _id: string;
     name: string;
     originalFilename: string;
+}
+
+interface AccountSummary {
+    _id: string;
+    type: string;
+    name: string;
+    icon: string;
 }
 
 function ReciterMultiSelect({
@@ -123,6 +131,7 @@ function ReciterMultiSelect({
 
 export function SettingsTab() {
     const [recitations, setRecitations] = useState<Recitation[]>([]);
+    const [accounts, setAccounts] = useState<AccountSummary[]>([]);
     const [enabledIds, setEnabledIds] = useState<Set<number>>(new Set());
     const [overlays, setOverlays] = useState<OverlayAsset[]>([]);
     const [vignette, setVignette] = useState(0);
@@ -139,30 +148,105 @@ export function SettingsTab() {
     const [overlayId, setOverlayId] = useState("none");
     const [overlayBlendMode, setOverlayBlendMode] =
         useState<OverlayBlendMode>("normal");
+    const [selectedConfigAccountId, setSelectedConfigAccountId] =
+        useState("__global__");
+    const [copySourceAccountId, setCopySourceAccountId] = useState("");
     const [savingReciters, setSavingReciters] = useState(false);
+    const [copyingConfig, setCopyingConfig] = useState(false);
     const [loading, setLoading] = useState(true);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    function applyConfig(config: {
+        enabledIds?: number[];
+        vignette?: number;
+        exposure?: number;
+        saturation?: number;
+        audioLeadSeconds?: number;
+        clipTailSeconds?: number;
+        maxVideoClipSeconds?: number;
+        randomAyahMinSeconds?: number;
+        randomAyahMaxSeconds?: number;
+        uploadCaptionTemplate?: string;
+        overlayId?: string | null;
+        overlayBlendMode?: string;
+    }) {
+        setEnabledIds(new Set(config.enabledIds ?? []));
+        setVignette(
+            typeof config.vignette === "number" ? config.vignette : 0,
+        );
+        setExposure(
+            typeof config.exposure === "number" ? config.exposure : 0,
+        );
+        setSaturation(
+            typeof config.saturation === "number" ? config.saturation : 1,
+        );
+        setAudioLeadSeconds(
+            typeof config.audioLeadSeconds === "number"
+                ? config.audioLeadSeconds
+                : 1.5,
+        );
+        setClipTailSeconds(
+            typeof config.clipTailSeconds === "number"
+                ? config.clipTailSeconds
+                : 0,
+        );
+        setMaxVideoClipSeconds(
+            typeof config.maxVideoClipSeconds === "number"
+                ? config.maxVideoClipSeconds
+                : 5,
+        );
+        setRandomAyahMinSeconds(
+            typeof config.randomAyahMinSeconds === "number"
+                ? config.randomAyahMinSeconds
+                : 0,
+        );
+        setRandomAyahMaxSeconds(
+            typeof config.randomAyahMaxSeconds === "number"
+                ? config.randomAyahMaxSeconds
+                : 30,
+        );
+        setUploadCaptionTemplate(
+            typeof config.uploadCaptionTemplate === "string" &&
+                config.uploadCaptionTemplate.trim().length > 0
+                ? config.uploadCaptionTemplate
+                : DEFAULT_UPLOAD_CAPTION_TEMPLATE,
+        );
+        setOverlayId(
+            typeof config.overlayId === "string" ? config.overlayId : "none",
+        );
+        setOverlayBlendMode(
+            typeof config.overlayBlendMode === "string" &&
+                OVERLAY_BLEND_MODES.includes(
+                    config.overlayBlendMode as OverlayBlendMode,
+                )
+                ? (config.overlayBlendMode as OverlayBlendMode)
+                : "normal",
+        );
+    }
 
     useEffect(() => {
         async function load() {
             setLoading(true);
             try {
-                const [recRes, cfgRecRes, videoCfgRes, overlaysRes] =
+                const [recRes, cfgRecRes, videoCfgRes, overlaysRes, accountsRes] =
                     await Promise.all([
                         fetch("/api/qf/reciters"),
                         fetch("/api/configuration/reciters"),
                         fetch("/api/configuration/video"),
                         fetch("/api/overlays"),
+                        fetch("/api/accounts"),
                     ]);
                 const recData = JSON.parse(await recRes.text());
                 const cfgRecData = JSON.parse(await cfgRecRes.text());
                 const videoCfg = JSON.parse(await videoCfgRes.text());
                 const overlayData = JSON.parse(await overlaysRes.text());
+                const accountsData = JSON.parse(await accountsRes.text());
 
                 if (recData.error) throw new Error(recData.error);
                 if (cfgRecData.error) throw new Error(cfgRecData.error);
                 if (videoCfg.error) throw new Error(videoCfg.error);
                 if (overlayData.error) throw new Error(overlayData.error);
+                if (accountsData.error) throw new Error(accountsData.error);
 
                 const sortedRecitations = [
                     ...(recData.recitations as Recitation[]),
@@ -174,66 +258,12 @@ export function SettingsTab() {
                 if (sortedRecitations.length > 0 && nextEnabledIds.size === 0) {
                     nextEnabledIds.add(sortedRecitations[0].id);
                 }
-                setEnabledIds(nextEnabledIds);
-
+                setAccounts(accountsData as AccountSummary[]);
                 setOverlays(overlayData as OverlayAsset[]);
-                setVignette(
-                    typeof videoCfg.vignette === "number"
-                        ? videoCfg.vignette
-                        : 0,
-                );
-                setExposure(
-                    typeof videoCfg.exposure === "number"
-                        ? videoCfg.exposure
-                        : 0,
-                );
-                setSaturation(
-                    typeof videoCfg.saturation === "number"
-                        ? videoCfg.saturation
-                        : 1,
-                );
-                setAudioLeadSeconds(
-                    typeof videoCfg.audioLeadSeconds === "number"
-                        ? videoCfg.audioLeadSeconds
-                        : 1.5,
-                );
-                setClipTailSeconds(
-                    typeof videoCfg.clipTailSeconds === "number"
-                        ? videoCfg.clipTailSeconds
-                        : 0,
-                );
-                setMaxVideoClipSeconds(
-                    typeof videoCfg.maxVideoClipSeconds === "number"
-                        ? videoCfg.maxVideoClipSeconds
-                        : 5,
-                );
-                setRandomAyahMinSeconds(
-                    typeof videoCfg.randomAyahMinSeconds === "number"
-                        ? videoCfg.randomAyahMinSeconds
-                        : 0,
-                );
-                setRandomAyahMaxSeconds(
-                    typeof videoCfg.randomAyahMaxSeconds === "number"
-                        ? videoCfg.randomAyahMaxSeconds
-                        : 30,
-                );
-                setUploadCaptionTemplate(
-                    typeof videoCfg.uploadCaptionTemplate === "string" &&
-                        videoCfg.uploadCaptionTemplate.trim().length > 0
-                        ? videoCfg.uploadCaptionTemplate
-                        : DEFAULT_UPLOAD_CAPTION_TEMPLATE,
-                );
-                setOverlayId(
-                    typeof videoCfg.overlayId === "string"
-                        ? videoCfg.overlayId
-                        : "none",
-                );
-                setOverlayBlendMode(
-                    typeof videoCfg.overlayBlendMode === "string" &&
-                        OVERLAY_BLEND_MODES.includes(videoCfg.overlayBlendMode)
-                        ? videoCfg.overlayBlendMode
-                        : "normal",
-                );
+                applyConfig({
+                    ...videoCfg,
+                    enabledIds: [...nextEnabledIds],
+                });
             } catch (error) {
                 toast.error(
                     error instanceof Error ? error.message : String(error),
@@ -244,6 +274,44 @@ export function SettingsTab() {
         }
         void load();
     }, []);
+
+    useEffect(() => {
+        async function loadScopedConfig() {
+            if (loading) return;
+            try {
+                const endpoint =
+                    selectedConfigAccountId === "__global__"
+                        ? null
+                        : `/api/accounts/${selectedConfigAccountId}/config`;
+                if (!endpoint) {
+                    const [cfgRecRes, videoCfgRes] = await Promise.all([
+                        fetch("/api/configuration/reciters"),
+                        fetch("/api/configuration/video"),
+                    ]);
+                    const cfgRecData = JSON.parse(await cfgRecRes.text());
+                    const videoCfg = JSON.parse(await videoCfgRes.text());
+                    if (cfgRecData.error) throw new Error(cfgRecData.error);
+                    if (videoCfg.error) throw new Error(videoCfg.error);
+                    applyConfig({
+                        ...videoCfg,
+                        enabledIds: cfgRecData.enabledIds ?? [],
+                    });
+                    return;
+                }
+
+                const res = await fetch(endpoint);
+                const data = JSON.parse(await res.text());
+                if (data.error) throw new Error(data.error);
+                applyConfig(data);
+            } catch (error) {
+                toast.error(
+                    error instanceof Error ? error.message : String(error),
+                );
+            }
+        }
+
+        void loadScopedConfig();
+    }, [selectedConfigAccountId, loading]);
 
     const saveVideoConfig = useCallback(
         (next: {
@@ -261,20 +329,28 @@ export function SettingsTab() {
         }) => {
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
             saveTimerRef.current = setTimeout(() => {
-                fetch("/api/configuration/video", {
+                const url =
+                    selectedConfigAccountId === "__global__"
+                        ? "/api/configuration/video"
+                        : `/api/accounts/${selectedConfigAccountId}/config`;
+                fetch(url, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(next),
                 }).catch(() => {});
             }, 250);
         },
-        [],
+        [selectedConfigAccountId],
     );
 
     async function saveReciters(next: Set<number>) {
         setSavingReciters(true);
         try {
-            const res = await fetch("/api/configuration/reciters", {
+            const url =
+                selectedConfigAccountId === "__global__"
+                    ? "/api/configuration/reciters"
+                    : `/api/accounts/${selectedConfigAccountId}/config`;
+            const res = await fetch(url, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ enabledIds: [...next] }),
@@ -289,13 +365,66 @@ export function SettingsTab() {
         }
     }
 
+    async function copyConfigFromAccount() {
+        if (
+            selectedConfigAccountId === "__global__" ||
+            !copySourceAccountId ||
+            copyingConfig
+        ) {
+            return;
+        }
+        setCopyingConfig(true);
+        try {
+            const res = await fetch(
+                `/api/accounts/${selectedConfigAccountId}/config/copy`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        sourceAccountId: copySourceAccountId,
+                    }),
+                },
+            );
+            const data = JSON.parse(await res.text());
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to copy config");
+            }
+            applyConfig(data);
+            toast.success("Copied configuration from the selected account.");
+        } catch (error) {
+            toast.error(
+                error instanceof Error ? error.message : String(error),
+            );
+        } finally {
+            setCopyingConfig(false);
+        }
+    }
+
+    const configScopeItems = [
+        { value: "__global__", label: "Global defaults" },
+        ...accounts.map((account) => ({
+            value: account._id,
+            label: account.name,
+            subtitle: account.type,
+            image: account.icon,
+        })),
+    ];
+    const copySourceItems = accounts
+        .filter((account) => account._id !== selectedConfigAccountId)
+        .map((account) => ({
+            value: account._id,
+            label: account.name,
+            subtitle: account.type,
+            image: account.icon,
+        }));
+
     return (
         <div className="flex flex-col gap-8 w-full">
             <div>
                 <h1 className="text-2xl font-medium">Settings</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Central configuration for reciters, video treatment, audio
-                    lead, and default overlay behavior.
+                    Global defaults stay intact. Select a linked account to add
+                    account-specific overrides on top of them.
                 </p>
             </div>
             <div className="w-full min-w-0">
@@ -323,6 +452,76 @@ export function SettingsTab() {
                 ) : (
                 <Table className="w-full table-fixed">
                     <TableBody>
+                        <TableRow className="border-b">
+                            <TableCell className="w-[42%] whitespace-normal align-top md:w-[42%]">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Configuration target
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Choose whether you are editing the
+                                        shared global defaults or one linked
+                                        account&apos;s override config.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
+                                    <SearchableSelect
+                                        items={configScopeItems}
+                                        value={selectedConfigAccountId}
+                                        onChange={(value) => {
+                                            setSelectedConfigAccountId(value);
+                                            setCopySourceAccountId("");
+                                        }}
+                                        placeholder="Select config target"
+                                        searchPlaceholder="Search config targets…"
+                                        emptyLabel="No config targets found."
+                                        className="w-full"
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        {selectedConfigAccountId !== "__global__" && (
+                            <TableRow className="border-b">
+                                <TableCell className="w-[42%] whitespace-normal align-top md:w-[42%]">
+                                    <div className="flex flex-col gap-1">
+                                        <p className="font-medium text-sm">
+                                            Copy from another account
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            Clone another linked account&apos;s
+                                            merged config into this account
+                                            without touching the global
+                                            defaults.
+                                        </p>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="whitespace-normal align-top">
+                                    <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row">
+                                        <SearchableSelect
+                                            items={copySourceItems}
+                                            value={copySourceAccountId}
+                                            onChange={setCopySourceAccountId}
+                                            placeholder="Select source account"
+                                            searchPlaceholder="Search source accounts…"
+                                            emptyLabel="No other accounts found."
+                                            className="w-full"
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            onClick={copyConfigFromAccount}
+                                            disabled={
+                                                !copySourceAccountId ||
+                                                copyingConfig
+                                            }
+                                        >
+                                            Copy Config
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )}
                         <TableRow className="border-b">
                             <TableCell className="w-[42%] whitespace-normal align-top md:w-[42%]">
                                 <div className="flex flex-col gap-1">

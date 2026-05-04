@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -39,6 +40,8 @@ interface AudioAsset {
     name: string;
     originalFilename: string;
     sizeBytes: number;
+    defaultStartSeconds?: number;
+    defaultEndSeconds?: number | null;
     createdAt: string;
 }
 
@@ -55,6 +58,11 @@ export function AudiosTab() {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState("");
     const [previewing, setPreviewing] = useState<AudioAsset | null>(null);
+    const [defaultStartSeconds, setDefaultStartSeconds] = useState(0);
+    const [defaultEndSeconds, setDefaultEndSeconds] = useState("");
+    const [savingDefaults, setSavingDefaults] = useState(false);
+    const previewAudioRef = useRef<HTMLAudioElement>(null);
+    const previewStopTimeoutRef = useRef<number | null>(null);
 
     async function load() {
         try {
@@ -77,6 +85,14 @@ export function AudiosTab() {
             void load();
         }, 0);
         return () => window.clearTimeout(timer);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (previewStopTimeoutRef.current) {
+                window.clearTimeout(previewStopTimeoutRef.current);
+            }
+        };
     }, []);
 
     async function uploadAudio(file: File) {
@@ -126,6 +142,16 @@ export function AudiosTab() {
         setEditValue(audio.name);
     }
 
+    function openPreview(audio: AudioAsset) {
+        setDefaultStartSeconds(audio.defaultStartSeconds ?? 0);
+        setDefaultEndSeconds(
+            typeof audio.defaultEndSeconds === "number"
+                ? String(audio.defaultEndSeconds)
+                : "",
+        );
+        setPreviewing(audio);
+    }
+
     async function saveRename(id: string) {
         const name = editValue.trim();
         if (!name) {
@@ -152,6 +178,87 @@ export function AudiosTab() {
             toast.success("Audio renamed.");
         } catch (e) {
             toast.error(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    async function saveDefaults() {
+        if (!previewing) return;
+        setSavingDefaults(true);
+        try {
+            const parsedEnd =
+                defaultEndSeconds.trim().length > 0
+                    ? Number(defaultEndSeconds)
+                    : null;
+            if (
+                parsedEnd !== null &&
+                Number.isFinite(parsedEnd) &&
+                parsedEnd <= defaultStartSeconds
+            ) {
+                throw new Error("Default end must be greater than start.");
+            }
+            const res = await fetch(`/api/audios/${previewing._id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    defaultStartSeconds,
+                    defaultEndSeconds:
+                        parsedEnd !== null && Number.isFinite(parsedEnd)
+                            ? parsedEnd
+                            : null,
+                }),
+            });
+            const data = JSON.parse(await res.text());
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to save audio defaults");
+            }
+            setAudios((current) =>
+                current.map((audio) =>
+                    audio._id === previewing._id ? data : audio,
+                ),
+            );
+            setPreviewing(data);
+            toast.success("Audio defaults saved.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        } finally {
+            setSavingDefaults(false);
+        }
+    }
+
+    async function previewTrimmedAudio() {
+        if (!previewing) return;
+        const audio = previewAudioRef.current;
+        if (!audio) return;
+        const start = Math.max(0, defaultStartSeconds);
+        const parsedEnd =
+            defaultEndSeconds.trim().length > 0
+                ? Number(defaultEndSeconds)
+                : null;
+        if (
+            parsedEnd !== null &&
+            Number.isFinite(parsedEnd) &&
+            parsedEnd <= start
+        ) {
+            toast.error("Default end must be greater than start.");
+            return;
+        }
+        if (previewStopTimeoutRef.current) {
+            window.clearTimeout(previewStopTimeoutRef.current);
+            previewStopTimeoutRef.current = null;
+        }
+        audio.pause();
+        audio.currentTime = start;
+        try {
+            await audio.play();
+            if (parsedEnd !== null && Number.isFinite(parsedEnd)) {
+                previewStopTimeoutRef.current = window.setTimeout(() => {
+                    audio.pause();
+                    audio.currentTime = start;
+                    previewStopTimeoutRef.current = null;
+                }, Math.max((parsedEnd - start) * 1000, 80));
+            }
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Unable to preview audio.");
         }
     }
 
@@ -311,7 +418,7 @@ export function AudiosTab() {
                                             size="icon"
                                             variant="ghost"
                                             className="size-8"
-                                            onClick={() => setPreviewing(audio)}
+                                            onClick={() => openPreview(audio)}
                                             title="Preview audio"
                                         >
                                             <Eye className="size-3.5" />
@@ -367,12 +474,59 @@ export function AudiosTab() {
                             <p className="text-sm text-muted-foreground">
                                 {previewing.originalFilename}
                             </p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="flex flex-col gap-1.5">
+                                    <Label>Default trim start</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step={0.1}
+                                        value={defaultStartSeconds}
+                                        onChange={(e) =>
+                                            setDefaultStartSeconds(
+                                                Math.max(
+                                                    0,
+                                                    Number(e.target.value) || 0,
+                                                ),
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <Label>Default trim end</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step={0.1}
+                                        value={defaultEndSeconds}
+                                        onChange={(e) =>
+                                            setDefaultEndSeconds(e.target.value)
+                                        }
+                                        placeholder="Full length"
+                                    />
+                                </div>
+                            </div>
                             <audio
+                                ref={previewAudioRef}
                                 controls
                                 preload="metadata"
                                 src={`/api/audios/${previewing._id}/file`}
                                 className="w-full"
                             />
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => void previewTrimmedAudio()}
+                                >
+                                    Preview trim
+                                </Button>
+                                <Button
+                                    onClick={() => void saveDefaults()}
+                                    disabled={savingDefaults}
+                                >
+                                    Save defaults
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </DialogContent>

@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
             originalFilename: file.name,
             filePath: dest,
             sizeBytes: buffer.byteLength,
+            defaultStartSeconds: 0,
+            defaultEndSeconds: null,
             createdAt: new Date(),
             updatedAt: new Date(),
         };

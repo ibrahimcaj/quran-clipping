@@ -154,6 +154,8 @@ interface AudioAsset {
     _id: string;
     originalFilename: string;
     name: string;
+    defaultStartSeconds?: number;
+    defaultEndSeconds?: number | null;
 }
 
 interface TextOverridePreset {
@@ -628,6 +630,8 @@ export function ClipsTab() {
     const [finderAudioId, setFinderAudioId] = useState("");
     const [finderAudioStartSeconds, setFinderAudioStartSeconds] = useState(0);
     const [finderAudioEndSeconds, setFinderAudioEndSeconds] = useState("");
+    const finderAudioPreviewRef = useRef<HTMLAudioElement>(null);
+    const finderAudioPreviewTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         async function loadAssets() {
@@ -1209,10 +1213,11 @@ export function ClipsTab() {
             toast.success(
                 customAudioIdForRun
                     ? verseForRun
-                        ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
+                      ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
+                      : "Pipeline started."
                     : verseForRun
-                    ? `Pipeline started for ${verseForRun.verse_key}.`
-                    : "Pipeline started.",
+                      ? `Pipeline started for ${verseForRun.verse_key}.`
+                      : "Pipeline started.",
             );
         } catch (e) {
             toast.error(e instanceof Error ? e.message : String(e));
@@ -1468,6 +1473,11 @@ export function ClipsTab() {
         [audios],
     );
 
+    const selectedFinderAudio = useMemo(
+        () => audios.find((audio) => audio._id === finderAudioId) ?? null,
+        [audios, finderAudioId],
+    );
+
     const audioSourceOptions = useMemo(
         () => [
             {
@@ -1498,6 +1508,14 @@ export function ClipsTab() {
             ? selectedExperiment.logs
             : selectedExperiment.logs.slice(-logLimit)
         : [];
+
+    useEffect(() => {
+        return () => {
+            if (finderAudioPreviewTimeoutRef.current) {
+                window.clearTimeout(finderAudioPreviewTimeoutRef.current);
+            }
+        };
+    }, []);
 
     async function runWorkerNow() {
         setRunningWorker(true);
@@ -1544,6 +1562,50 @@ export function ClipsTab() {
             toast.error(e instanceof Error ? e.message : String(e));
         } finally {
             setRunningWorker(false);
+        }
+    }
+
+    async function previewFinderAudioTrim() {
+        if (!selectedFinderAudio) {
+            toast.error("Select an uploaded audio source first.");
+            return;
+        }
+        const audio = finderAudioPreviewRef.current;
+        if (!audio) return;
+        const start = Math.max(0, finderAudioStartSeconds);
+        const parsedEnd =
+            finderAudioEndSeconds.trim().length > 0
+                ? Number(finderAudioEndSeconds)
+                : null;
+        if (
+            parsedEnd !== null &&
+            Number.isFinite(parsedEnd) &&
+            parsedEnd <= start
+        ) {
+            toast.error("Trim end must be greater than trim start.");
+            return;
+        }
+
+        if (finderAudioPreviewTimeoutRef.current) {
+            window.clearTimeout(finderAudioPreviewTimeoutRef.current);
+            finderAudioPreviewTimeoutRef.current = null;
+        }
+
+        audio.pause();
+        audio.currentTime = start;
+        try {
+            await audio.play();
+            if (parsedEnd !== null && Number.isFinite(parsedEnd)) {
+                finderAudioPreviewTimeoutRef.current = window.setTimeout(() => {
+                    audio.pause();
+                    audio.currentTime = start;
+                    finderAudioPreviewTimeoutRef.current = null;
+                }, Math.max((parsedEnd - start) * 1000, 80));
+            }
+        } catch (e) {
+            toast.error(
+                e instanceof Error ? e.message : "Unable to preview audio.",
+            );
         }
     }
 
@@ -1652,7 +1714,26 @@ export function ClipsTab() {
                                         <SearchableSelect
                                             items={customAudioOptions}
                                             value={finderAudioId}
-                                            onChange={setFinderAudioId}
+                                            onChange={(value) => {
+                                                const selectedAudio =
+                                                    audios.find(
+                                                        (audio) =>
+                                                            audio._id === value,
+                                                    ) ?? null;
+                                                setFinderAudioId(value);
+                                                setFinderAudioStartSeconds(
+                                                    selectedAudio?.defaultStartSeconds ??
+                                                        0,
+                                                );
+                                                setFinderAudioEndSeconds(
+                                                    typeof selectedAudio?.defaultEndSeconds ===
+                                                        "number"
+                                                        ? String(
+                                                              selectedAudio.defaultEndSeconds,
+                                                          )
+                                                        : "",
+                                                );
+                                            }}
                                             placeholder="Choose uploaded audio"
                                             searchPlaceholder="Search audio…"
                                             emptyLabel="No audio uploaded yet."
@@ -1785,7 +1866,20 @@ export function ClipsTab() {
                                         />
                                     </div>
                                 ) : null}
-                                <div className="flex shrink-0 items-end">
+                                <div className="flex shrink-0 items-end gap-2">
+                                    {finderAudioSourceMode === "audio" && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="lg"
+                                            onClick={() =>
+                                                void previewFinderAudioTrim()
+                                            }
+                                            disabled={!finderAudioId}
+                                        >
+                                            Preview audio
+                                        </Button>
+                                    )}
                                     <Button
                                         onClick={
                                             finderMode === "random"
@@ -1835,6 +1929,14 @@ export function ClipsTab() {
                                 </div>
                             </div>
                         </div>
+                        {finderAudioSourceMode === "audio" && finderAudioId && (
+                            <audio
+                                ref={finderAudioPreviewRef}
+                                preload="metadata"
+                                src={`/api/audios/${finderAudioId}/file`}
+                                className="hidden"
+                            />
+                        )}
                         <form
                             id="specific-ayah-form"
                             onSubmit={fetchSpecificVerse}

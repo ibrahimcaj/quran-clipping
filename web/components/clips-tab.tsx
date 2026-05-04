@@ -625,9 +625,6 @@ export function ClipsTab() {
     ] = useState("");
     const [savingTextPreset, setSavingTextPreset] = useState(false);
     const [deletingTextPreset, setDeletingTextPreset] = useState(false);
-    const [selectedCustomAudioId, setSelectedCustomAudioId] = useState("");
-    const [customAudioStartSeconds, setCustomAudioStartSeconds] = useState(0);
-    const [customAudioEndSeconds, setCustomAudioEndSeconds] = useState("");
     const [finderAudioId, setFinderAudioId] = useState("");
     const [finderAudioStartSeconds, setFinderAudioStartSeconds] = useState(0);
     const [finderAudioEndSeconds, setFinderAudioEndSeconds] = useState("");
@@ -1154,28 +1151,25 @@ export function ClipsTab() {
             );
             return;
         }
-        const customAudioIdForRun = verseForRun
-            ? finderAudioSourceMode === "audio"
+        const customAudioIdForRun =
+            verseForRun && finderAudioSourceMode === "audio"
                 ? finderAudioId
-                : null
-            : selectedCustomAudioId;
+                : null;
         const customAudioStartForRun = verseForRun
             ? finderAudioSourceMode === "audio"
                 ? finderAudioStartSeconds
                 : null
-            : customAudioIdForRun
-              ? customAudioStartSeconds
-              : null;
+            : null;
         const parsedCustomAudioEnd =
             (
                 verseForRun && finderAudioSourceMode === "audio"
                     ? finderAudioEndSeconds
-                    : customAudioEndSeconds
+                    : ""
             ).trim().length > 0
                 ? Number(
                       verseForRun && finderAudioSourceMode === "audio"
                           ? finderAudioEndSeconds
-                          : customAudioEndSeconds,
+                          : "",
                   )
                 : null;
         const customAudioEndForRun =
@@ -1209,9 +1203,6 @@ export function ClipsTab() {
             }
             setExperiments((current) => [data, ...current].slice(0, 20));
             setTextOverride(null);
-            setSelectedCustomAudioId("");
-            setCustomAudioStartSeconds(0);
-            setCustomAudioEndSeconds("");
             setFinderAudioId("");
             setFinderAudioStartSeconds(0);
             setFinderAudioEndSeconds("");
@@ -1219,7 +1210,6 @@ export function ClipsTab() {
                 customAudioIdForRun
                     ? verseForRun
                         ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
-                        : "Custom clip started."
                     : verseForRun
                     ? `Pipeline started for ${verseForRun.verse_key}.`
                     : "Pipeline started.",
@@ -1476,11 +1466,6 @@ export function ClipsTab() {
                 subtitle: audio.originalFilename,
             })),
         [audios],
-    );
-
-    const selectedCustomAudio = useMemo(
-        () => audios.find((audio) => audio._id === selectedCustomAudioId) ?? null,
-        [audios, selectedCustomAudioId],
     );
 
     const audioSourceOptions = useMemo(
@@ -1897,141 +1882,6 @@ export function ClipsTab() {
                             </div>
                         )}
 
-                        <div className="flex flex-col gap-4 border-t pt-5">
-                            <div className="rounded-lg border bg-card p-4">
-                                <div className="flex flex-col gap-4">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h2 className="text-sm font-medium">
-                                                Custom clip
-                                            </h2>
-                                            <p className="text-sm text-muted-foreground">
-                                                Render uploaded audio with saved
-                                                custom text instead of a Quran
-                                                verse.
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant={
-                                                textOverride
-                                                    ? "default"
-                                                    : "outline"
-                                            }
-                                            onClick={openTextOverrideDialog}
-                                            className="shrink-0"
-                                        >
-                                            <Type className="mr-2 size-4" />
-                                            {textOverride
-                                                ? "Edit text"
-                                                : "Set text"}
-                                        </Button>
-                                    </div>
-
-                                    <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_120px_120px_auto] md:items-end">
-                                        <div className="flex min-w-0 flex-col gap-1.5">
-                                            <Label>Custom audio</Label>
-                                            <SearchableSelect
-                                                items={customAudioOptions}
-                                                value={selectedCustomAudioId}
-                                                onChange={(value) => {
-                                                    setSelectedCustomAudioId(
-                                                        value,
-                                                    );
-                                                    setCustomAudioStartSeconds(
-                                                        0,
-                                                    );
-                                                    setCustomAudioEndSeconds(
-                                                        "",
-                                                    );
-                                                }}
-                                                placeholder="Choose uploaded audio"
-                                                searchPlaceholder="Search audio…"
-                                                emptyLabel="No audio uploaded yet."
-                                                className="w-full"
-                                                disabled={
-                                                    customAudioOptions.length ===
-                                                    0
-                                                }
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label>Trim start</Label>
-                                            <Input
-                                                type="number"
-                                                min={0}
-                                                step={0.1}
-                                                value={customAudioStartSeconds}
-                                                onChange={(e) =>
-                                                    setCustomAudioStartSeconds(
-                                                        Math.max(
-                                                            0,
-                                                            Number(
-                                                                e.target.value,
-                                                            ) || 0,
-                                                        ),
-                                                    )
-                                                }
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label>Trim end</Label>
-                                            <Input
-                                                type="number"
-                                                min={0}
-                                                step={0.1}
-                                                value={customAudioEndSeconds}
-                                                onChange={(e) =>
-                                                    setCustomAudioEndSeconds(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="Full length"
-                                            />
-                                        </div>
-                                        <Button
-                                            onClick={() =>
-                                                void runExperiment("pipeline", {
-                                                    verse: null,
-                                                    recitationId: null,
-                                                })
-                                            }
-                                            disabled={
-                                                !selectedCustomAudioId ||
-                                                !textOverride?.title
-                                            }
-                                            className="w-full md:w-auto"
-                                        >
-                                            Generate custom clip
-                                        </Button>
-                                    </div>
-
-                                    {selectedCustomAudio && (
-                                        <div className="rounded-md border bg-background/60 p-3">
-                                            <p className="truncate text-sm font-medium">
-                                                {selectedCustomAudio.name}
-                                            </p>
-                                            <p className="truncate text-xs text-muted-foreground">
-                                                {
-                                                    selectedCustomAudio.originalFilename
-                                                }
-                                            </p>
-                                            <audio
-                                                controls
-                                                preload="metadata"
-                                                src={`/api/audios/${selectedCustomAudio._id}/file`}
-                                                className="mt-3 w-full"
-                                            />
-                                        </div>
-                                    )}
-
-                                    <p className="text-xs text-muted-foreground">
-                                        {textOverride?.title
-                                            ? `Using title: ${textOverride.title}`
-                                            : "Set a text override title before generating a custom clip."}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
 

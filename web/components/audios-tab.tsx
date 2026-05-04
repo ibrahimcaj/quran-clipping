@@ -28,10 +28,10 @@ import {
 import { cn } from "@/lib/utils";
 import {
     AudioLines,
-    Eye,
     Loader2,
     MoreHorizontal,
     Plus,
+    Settings2,
     Trash2,
 } from "lucide-react";
 
@@ -419,9 +419,9 @@ export function AudiosTab() {
                                             variant="ghost"
                                             className="size-8"
                                             onClick={() => openPreview(audio)}
-                                            title="Preview audio"
+                                            title="Audio settings"
                                         >
-                                            <Eye className="size-3.5" />
+                                            <Settings2 className="size-3.5" />
                                         </Button>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger

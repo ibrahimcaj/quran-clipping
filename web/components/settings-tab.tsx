@@ -141,25 +141,34 @@ function ReciterMultiSelect({
     );
 }
 
-function AssetMultiSelect({
+function AssetScopeSelect({
     items,
-    value,
+    selectionMode,
+    selectedIds,
     onChange,
-    placeholder,
+    allLabel,
+    specificLabel,
 }: {
     items: { id: string; label: string; subtitle?: string }[];
-    value: string[];
-    onChange: (next: string[]) => void;
-    placeholder: string;
+    selectionMode: "all" | "specific";
+    selectedIds: string[];
+    onChange: (next: {
+        selectionMode: "all" | "specific";
+        selectedIds: string[];
+    }) => void;
+    allLabel: string;
+    specificLabel: string;
 }) {
     const [open, setOpen] = useState(false);
 
-    function toggle(id: string) {
-        onChange(
-            value.includes(id)
-                ? value.filter((item) => item !== id)
-                : [...value, id],
-        );
+    function toggleItem(id: string) {
+        const nextSelected = selectedIds.includes(id)
+            ? selectedIds.filter((item) => item !== id)
+            : [...selectedIds, id];
+        onChange({
+            selectionMode: "specific",
+            selectedIds: nextSelected,
+        });
     }
 
     return (
@@ -168,9 +177,11 @@ function AssetMultiSelect({
                 render={
                     <button className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors hover:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-ring">
                         <span className="truncate text-left">
-                            {value.length === 0
-                                ? placeholder
-                                : `${value.length} selected`}
+                            {selectionMode === "all"
+                                ? allLabel
+                                : selectedIds.length > 0
+                                  ? `${selectedIds.length} selected`
+                                  : specificLabel}
                         </span>
                         <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
                     </button>
@@ -178,17 +189,37 @@ function AssetMultiSelect({
             />
             <PopoverContent className="w-[min(360px,var(--radix-popover-trigger-width))] p-0">
                 <Command>
-                    <CommandInput placeholder={`Search ${placeholder.toLowerCase()}…`} />
+                    <CommandInput placeholder={`Search ${specificLabel.toLowerCase()}…`} />
                     <CommandList>
                         <CommandEmpty>No items found.</CommandEmpty>
                         <CommandGroup>
+                            <CommandItem
+                                value={allLabel}
+                                onSelect={() =>
+                                    onChange({
+                                        selectionMode: "all",
+                                        selectedIds: [],
+                                    })
+                                }
+                            >
+                                <span className="mr-2 h-4 w-4 flex items-center justify-center shrink-0">
+                                    {selectionMode === "all" ? (
+                                        <Check className="h-4 w-4" />
+                                    ) : null}
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="truncate">{allLabel}</p>
+                                </div>
+                            </CommandItem>
                             {items.map((item) => {
-                                const checked = value.includes(item.id);
+                                const checked =
+                                    selectionMode === "specific" &&
+                                    selectedIds.includes(item.id);
                                 return (
                                     <CommandItem
                                         key={item.id}
                                         value={`${item.label} ${item.subtitle ?? ""}`}
-                                        onSelect={() => toggle(item.id)}
+                                        onSelect={() => toggleItem(item.id)}
                                     >
                                         <span className="mr-2 h-4 w-4 flex items-center justify-center shrink-0">
                                             {checked ? (
@@ -1336,110 +1367,83 @@ export function SettingsTab() {
                             <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="text-sm font-medium">
-                                        Allowed assets
+                                        Videos
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        Choose whether this config can use all
-                                        uploaded videos and LUTs or only a
-                                        specific selection.
+                                        Use all uploaded videos or limit this
+                                        config to a specific set.
                                     </p>
                                 </div>
                             </TableCell>
                             <TableCell className="whitespace-normal align-top">
-                                <div className="grid w-full min-w-0 gap-4 sm:grid-cols-2">
-                                    <div className="flex min-w-0 flex-col gap-3">
-                                        <Label className="text-xs text-muted-foreground">
-                                            Videos
-                                        </Label>
-                                        <SearchableSelect
-                                            items={[
-                                                {
-                                                    value: "all",
-                                                    label: "All videos",
-                                                },
-                                                {
-                                                    value: "specific",
-                                                    label: "Specific videos only",
-                                                },
-                                            ]}
-                                            value={videoSelectionMode}
-                                            onChange={(value) => {
-                                                setVideoSelectionMode(value);
-                                                saveVideoConfig({
-                                                    videoSelectionMode: value,
-                                                });
-                                            }}
-                                            placeholder="Select video mode"
-                                            searchPlaceholder="Search modes…"
-                                            emptyLabel="No modes found."
-                                            className="w-full"
-                                        />
-                                        {videoSelectionMode === "specific" && (
-                                            <AssetMultiSelect
-                                                items={videos.map((video) => ({
-                                                    id: video._id,
-                                                    label: video.name,
-                                                    subtitle:
-                                                        video.originalFilename,
-                                                }))}
-                                                value={selectedVideoIds}
-                                                onChange={(next) => {
-                                                    setSelectedVideoIds(next);
-                                                    saveVideoConfig({
-                                                        selectedVideoIds: next,
-                                                    });
-                                                }}
-                                                placeholder="Select videos"
-                                            />
-                                        )}
-                                    </div>
-                                    <div className="flex min-w-0 flex-col gap-3">
-                                        <Label className="text-xs text-muted-foreground">
-                                            LUTs
-                                        </Label>
-                                        <SearchableSelect
-                                            items={[
-                                                {
-                                                    value: "all",
-                                                    label: "All LUTs",
-                                                },
-                                                {
-                                                    value: "specific",
-                                                    label: "Specific LUTs only",
-                                                },
-                                            ]}
-                                            value={lutSelectionMode}
-                                            onChange={(value) => {
-                                                setLutSelectionMode(value);
-                                                saveVideoConfig({
-                                                    lutSelectionMode: value,
-                                                });
-                                            }}
-                                            placeholder="Select LUT mode"
-                                            searchPlaceholder="Search modes…"
-                                            emptyLabel="No modes found."
-                                            className="w-full"
-                                        />
-                                        {lutSelectionMode === "specific" && (
-                                            <AssetMultiSelect
-                                                items={luts.map((lut) => ({
-                                                    id: lut._id,
-                                                    label: lut.name,
-                                                    subtitle:
-                                                        lut.originalFilename,
-                                                }))}
-                                                value={selectedLutIds}
-                                                onChange={(next) => {
-                                                    setSelectedLutIds(next);
-                                                    saveVideoConfig({
-                                                        selectedLutIds: next,
-                                                    });
-                                                }}
-                                                placeholder="Select LUTs"
-                                            />
-                                        )}
-                                    </div>
+                                <AssetScopeSelect
+                                    items={videos.map((video) => ({
+                                        id: video._id,
+                                        label: video.name,
+                                        subtitle: video.originalFilename,
+                                    }))}
+                                    selectionMode={
+                                        videoSelectionMode === "specific"
+                                            ? "specific"
+                                            : "all"
+                                    }
+                                    selectedIds={selectedVideoIds}
+                                    onChange={(next) => {
+                                        setVideoSelectionMode(
+                                            next.selectionMode,
+                                        );
+                                        setSelectedVideoIds(next.selectedIds);
+                                        saveVideoConfig({
+                                            videoSelectionMode:
+                                                next.selectionMode,
+                                            selectedVideoIds:
+                                                next.selectedIds,
+                                        });
+                                    }}
+                                    allLabel="All videos"
+                                    specificLabel="Specific videos"
+                                />
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-sm font-medium">
+                                        LUTs
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Use all LUTs or limit this config to a
+                                        specific set.
+                                    </p>
                                 </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <AssetScopeSelect
+                                    items={luts.map((lut) => ({
+                                        id: lut._id,
+                                        label: lut.name,
+                                        subtitle: lut.originalFilename,
+                                    }))}
+                                    selectionMode={
+                                        lutSelectionMode === "specific"
+                                            ? "specific"
+                                            : "all"
+                                    }
+                                    selectedIds={selectedLutIds}
+                                    onChange={(next) => {
+                                        setLutSelectionMode(
+                                            next.selectionMode,
+                                        );
+                                        setSelectedLutIds(next.selectedIds);
+                                        saveVideoConfig({
+                                            lutSelectionMode:
+                                                next.selectionMode,
+                                            selectedLutIds: next.selectedIds,
+                                        });
+                                    }}
+                                    allLabel="All LUTs"
+                                    specificLabel="Specific LUTs"
+                                />
                             </TableCell>
                         </TableRow>
                         <TableRow className="border-b">

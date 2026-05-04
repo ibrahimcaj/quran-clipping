@@ -2,27 +2,71 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { OVERLAY_BLEND_MODES } from "@/lib/ffmpeg-experiments";
-import { DEFAULT_UPLOAD_CAPTION_TEMPLATE } from "@/lib/upload-caption";
+import {
+    DEFAULT_ACCOUNT_VIDEO_CONFIG,
+    sanitizeAccountConfigPatch,
+} from "@/lib/account-config";
 
 export async function GET() {
     try {
         const db = await getDb();
         const doc = await db.collection("configuration").findOne({ type: "video" });
         return NextResponse.json({
-            vignette: (doc?.vignette as number | undefined) ?? 0,
-            exposure: (doc?.exposure as number | undefined) ?? 0,
-            saturation: (doc?.saturation as number | undefined) ?? 1,
+            vignette: (doc?.vignette as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.vignette,
+            exposure: (doc?.exposure as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.exposure,
+            saturation: (doc?.saturation as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.saturation,
             overlayId: doc?.overlayId?.toString?.() ?? doc?.overlayId ?? null,
-            overlayBlendMode: (doc?.overlayBlendMode as string | undefined) ?? "normal",
-            audioLeadSeconds: (doc?.audioLeadSeconds as number | undefined) ?? 1.5,
-            clipTailSeconds: (doc?.clipTailSeconds as number | undefined) ?? 0,
-            maxVideoClipSeconds: (doc?.maxVideoClipSeconds as number | undefined) ?? 5,
-            randomAyahMinSeconds: (doc?.randomAyahMinSeconds as number | undefined) ?? 0,
-            randomAyahMaxSeconds: (doc?.randomAyahMaxSeconds as number | undefined) ?? 30,
+            overlayBlendMode: (doc?.overlayBlendMode as string | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.overlayBlendMode,
+            workerUploadIntervalMinutes:
+                (doc?.workerUploadIntervalMinutes as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.workerUploadIntervalMinutes,
+            audioLeadSeconds: (doc?.audioLeadSeconds as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.audioLeadSeconds,
+            clipTailSeconds: (doc?.clipTailSeconds as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.clipTailSeconds,
+            maxVideoClipSeconds: (doc?.maxVideoClipSeconds as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.maxVideoClipSeconds,
+            randomAyahMinSeconds: (doc?.randomAyahMinSeconds as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.randomAyahMinSeconds,
+            randomAyahMaxSeconds: (doc?.randomAyahMaxSeconds as number | undefined) ?? DEFAULT_ACCOUNT_VIDEO_CONFIG.randomAyahMaxSeconds,
             uploadCaptionTemplate:
                 (doc?.uploadCaptionTemplate as string | undefined) ??
                 DEFAULT_UPLOAD_CAPTION_TEMPLATE,
+            textOpacity:
+                (doc?.textOpacity as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textOpacity,
+            textColor:
+                (doc?.textColor as string | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textColor,
+            textStrokeWidth:
+                (doc?.textStrokeWidth as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textStrokeWidth,
+            textStrokeColor:
+                (doc?.textStrokeColor as string | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textStrokeColor,
+            textGlowAlpha:
+                (doc?.textGlowAlpha as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textGlowAlpha,
+            textGlowSigma:
+                (doc?.textGlowSigma as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textGlowSigma,
+            textGlowColor:
+                (doc?.textGlowColor as string | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textGlowColor,
+            textInnerGlowAlpha:
+                (doc?.textInnerGlowAlpha as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textInnerGlowAlpha,
+            textInnerGlowSigma:
+                (doc?.textInnerGlowSigma as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textInnerGlowSigma,
+            videoSelectionMode:
+                (doc?.videoSelectionMode as string | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.videoSelectionMode,
+            selectedVideoIds: Array.isArray(doc?.selectedVideoIds)
+                ? doc.selectedVideoIds.map((value) => value?.toString?.() ?? String(value))
+                : [],
+            lutSelectionMode:
+                (doc?.lutSelectionMode as string | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.lutSelectionMode,
+            selectedLutIds: Array.isArray(doc?.selectedLutIds)
+                ? doc.selectedLutIds.map((value) => value?.toString?.() ?? String(value))
+                : [],
         });
     } catch (err) {
         return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
@@ -37,54 +81,41 @@ export async function PATCH(req: NextRequest) {
             saturation?: number;
             overlayId?: string | null;
             overlayBlendMode?: string;
+            workerUploadIntervalMinutes?: number;
             audioLeadSeconds?: number;
             clipTailSeconds?: number;
             maxVideoClipSeconds?: number;
             randomAyahMinSeconds?: number;
             randomAyahMaxSeconds?: number;
             uploadCaptionTemplate?: string;
+            textOpacity?: number;
+            textColor?: string;
+            textStrokeWidth?: number;
+            textStrokeColor?: string;
+            textGlowAlpha?: number;
+            textGlowSigma?: number;
+            textGlowColor?: string;
+            textInnerGlowAlpha?: number;
+            textInnerGlowSigma?: number;
+            videoSelectionMode?: string;
+            selectedVideoIds?: string[];
+            lutSelectionMode?: string;
+            selectedLutIds?: string[];
         };
-        const update: Record<string, number | string | ObjectId | null> = {};
-        if (typeof body.vignette === "number") update.vignette = Math.max(0, Math.min(1, body.vignette));
-        if (typeof body.exposure === "number") update.exposure = Math.max(-3, Math.min(3, body.exposure));
-        if (typeof body.saturation === "number") update.saturation = Math.max(0, Math.min(3, body.saturation));
-        if (body.overlayId === null || body.overlayId === "") update.overlayId = null;
-        else if (typeof body.overlayId === "string") {
-            if (!ObjectId.isValid(body.overlayId)) {
-                return NextResponse.json({ error: "Invalid overlay id" }, { status: 400 });
-            }
-            update.overlayId = new ObjectId(body.overlayId);
-        }
-        if (typeof body.overlayBlendMode === "string") {
-            if (!OVERLAY_BLEND_MODES.includes(body.overlayBlendMode as typeof OVERLAY_BLEND_MODES[number])) {
-                return NextResponse.json({ error: "Invalid overlay blend mode" }, { status: 400 });
-            }
-            update.overlayBlendMode = body.overlayBlendMode;
-        }
-        if (typeof body.audioLeadSeconds === "number") {
-            update.audioLeadSeconds = Math.max(0, Math.min(5, body.audioLeadSeconds));
-        }
-        if (typeof body.clipTailSeconds === "number") {
-            update.clipTailSeconds = Math.max(-60, Math.min(60, body.clipTailSeconds));
-        }
-        if (typeof body.maxVideoClipSeconds === "number") {
-            update.maxVideoClipSeconds = Math.max(1, Math.min(60, body.maxVideoClipSeconds));
-        }
-        if (typeof body.randomAyahMinSeconds === "number") {
-            update.randomAyahMinSeconds = Math.max(0, Math.min(300, body.randomAyahMinSeconds));
-        }
-        if (typeof body.randomAyahMaxSeconds === "number") {
-            update.randomAyahMaxSeconds = Math.max(0, Math.min(300, body.randomAyahMaxSeconds));
-        }
-        if (typeof body.uploadCaptionTemplate === "string") {
-            update.uploadCaptionTemplate = body.uploadCaptionTemplate.trim() || DEFAULT_UPLOAD_CAPTION_TEMPLATE;
-        }
-        if (
-            typeof update.randomAyahMinSeconds === "number" &&
-            typeof update.randomAyahMaxSeconds === "number" &&
-            update.randomAyahMinSeconds > update.randomAyahMaxSeconds
-        ) {
-            return NextResponse.json({ error: "Random ayah min length cannot exceed max length" }, { status: 400 });
+        let update: Record<
+            string,
+            number | string | ObjectId | null | ObjectId[]
+        > = {};
+        try {
+            update = sanitizeAccountConfigPatch(body) as Record<
+                string,
+                number | string | ObjectId | null | ObjectId[]
+            >;
+        } catch (error) {
+            return NextResponse.json(
+                { error: error instanceof Error ? error.message : String(error) },
+                { status: 400 },
+            );
         }
         const db = await getDb();
         await db.collection("configuration").updateOne(

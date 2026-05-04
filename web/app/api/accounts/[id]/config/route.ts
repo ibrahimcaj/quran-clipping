@@ -49,12 +49,26 @@ export async function PATCH(
             saturation?: number;
             overlayId?: string | null;
             overlayBlendMode?: string;
+            workerUploadIntervalMinutes?: number;
             audioLeadSeconds?: number;
             clipTailSeconds?: number;
             maxVideoClipSeconds?: number;
             randomAyahMinSeconds?: number;
             randomAyahMaxSeconds?: number;
             uploadCaptionTemplate?: string;
+            textOpacity?: number;
+            textColor?: string;
+            textStrokeWidth?: number;
+            textStrokeColor?: string;
+            textGlowAlpha?: number;
+            textGlowSigma?: number;
+            textGlowColor?: string;
+            textInnerGlowAlpha?: number;
+            textInnerGlowSigma?: number;
+            videoSelectionMode?: string;
+            selectedVideoIds?: string[];
+            lutSelectionMode?: string;
+            selectedLutIds?: string[];
         };
         const db = await getDb();
         const account = await db.collection("accounts").findOne({

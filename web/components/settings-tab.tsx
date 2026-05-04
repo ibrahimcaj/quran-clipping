@@ -42,6 +42,18 @@ interface OverlayAsset {
     originalFilename: string;
 }
 
+interface VideoAsset {
+    _id: string;
+    name: string;
+    originalFilename: string;
+}
+
+interface LutAsset {
+    _id: string;
+    name: string;
+    originalFilename: string;
+}
+
 interface AccountSummary {
     _id: string;
     type: string;
@@ -129,14 +141,91 @@ function ReciterMultiSelect({
     );
 }
 
+function AssetMultiSelect({
+    items,
+    value,
+    onChange,
+    placeholder,
+}: {
+    items: { id: string; label: string; subtitle?: string }[];
+    value: string[];
+    onChange: (next: string[]) => void;
+    placeholder: string;
+}) {
+    const [open, setOpen] = useState(false);
+
+    function toggle(id: string) {
+        onChange(
+            value.includes(id)
+                ? value.filter((item) => item !== id)
+                : [...value, id],
+        );
+    }
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger
+                render={
+                    <button className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors hover:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-ring">
+                        <span className="truncate text-left">
+                            {value.length === 0
+                                ? placeholder
+                                : `${value.length} selected`}
+                        </span>
+                        <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                    </button>
+                }
+            />
+            <PopoverContent className="w-[min(360px,var(--radix-popover-trigger-width))] p-0">
+                <Command>
+                    <CommandInput placeholder={`Search ${placeholder.toLowerCase()}…`} />
+                    <CommandList>
+                        <CommandEmpty>No items found.</CommandEmpty>
+                        <CommandGroup>
+                            {items.map((item) => {
+                                const checked = value.includes(item.id);
+                                return (
+                                    <CommandItem
+                                        key={item.id}
+                                        value={`${item.label} ${item.subtitle ?? ""}`}
+                                        onSelect={() => toggle(item.id)}
+                                    >
+                                        <span className="mr-2 h-4 w-4 flex items-center justify-center shrink-0">
+                                            {checked ? (
+                                                <Check className="h-4 w-4" />
+                                            ) : null}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <p className="truncate">{item.label}</p>
+                                            {item.subtitle ? (
+                                                <p className="truncate text-xs text-muted-foreground">
+                                                    {item.subtitle}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    </CommandItem>
+                                );
+                            })}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 export function SettingsTab() {
     const [recitations, setRecitations] = useState<Recitation[]>([]);
     const [accounts, setAccounts] = useState<AccountSummary[]>([]);
     const [enabledIds, setEnabledIds] = useState<Set<number>>(new Set());
     const [overlays, setOverlays] = useState<OverlayAsset[]>([]);
+    const [videos, setVideos] = useState<VideoAsset[]>([]);
+    const [luts, setLuts] = useState<LutAsset[]>([]);
     const [vignette, setVignette] = useState(0);
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);
+    const [workerUploadIntervalMinutes, setWorkerUploadIntervalMinutes] =
+        useState(60);
     const [audioLeadSeconds, setAudioLeadSeconds] = useState(1.5);
     const [clipTailSeconds, setClipTailSeconds] = useState(0);
     const [maxVideoClipSeconds, setMaxVideoClipSeconds] = useState(5);
@@ -145,6 +234,19 @@ export function SettingsTab() {
     const [uploadCaptionTemplate, setUploadCaptionTemplate] = useState(
         DEFAULT_UPLOAD_CAPTION_TEMPLATE,
     );
+    const [textOpacity, setTextOpacity] = useState(1);
+    const [textColor, setTextColor] = useState("#FFFFFF");
+    const [textStrokeWidth, setTextStrokeWidth] = useState(0);
+    const [textStrokeColor, setTextStrokeColor] = useState("#000000");
+    const [textGlowAlpha, setTextGlowAlpha] = useState(1);
+    const [textGlowSigma, setTextGlowSigma] = useState(100);
+    const [textGlowColor, setTextGlowColor] = useState("#0E3A72");
+    const [textInnerGlowAlpha, setTextInnerGlowAlpha] = useState(0.7);
+    const [textInnerGlowSigma, setTextInnerGlowSigma] = useState(6);
+    const [videoSelectionMode, setVideoSelectionMode] = useState("all");
+    const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
+    const [lutSelectionMode, setLutSelectionMode] = useState("all");
+    const [selectedLutIds, setSelectedLutIds] = useState<string[]>([]);
     const [overlayId, setOverlayId] = useState("none");
     const [overlayBlendMode, setOverlayBlendMode] =
         useState<OverlayBlendMode>("normal");
@@ -167,6 +269,20 @@ export function SettingsTab() {
         randomAyahMinSeconds?: number;
         randomAyahMaxSeconds?: number;
         uploadCaptionTemplate?: string;
+        workerUploadIntervalMinutes?: number;
+        textOpacity?: number;
+        textColor?: string;
+        textStrokeWidth?: number;
+        textStrokeColor?: string;
+        textGlowAlpha?: number;
+        textGlowSigma?: number;
+        textGlowColor?: string;
+        textInnerGlowAlpha?: number;
+        textInnerGlowSigma?: number;
+        videoSelectionMode?: string;
+        selectedVideoIds?: string[];
+        lutSelectionMode?: string;
+        selectedLutIds?: string[];
         overlayId?: string | null;
         overlayBlendMode?: string;
     }) {
@@ -184,6 +300,11 @@ export function SettingsTab() {
             typeof config.audioLeadSeconds === "number"
                 ? config.audioLeadSeconds
                 : 1.5,
+        );
+        setWorkerUploadIntervalMinutes(
+            typeof config.workerUploadIntervalMinutes === "number"
+                ? config.workerUploadIntervalMinutes
+                : 60,
         );
         setClipTailSeconds(
             typeof config.clipTailSeconds === "number"
@@ -211,6 +332,61 @@ export function SettingsTab() {
                 ? config.uploadCaptionTemplate
                 : DEFAULT_UPLOAD_CAPTION_TEMPLATE,
         );
+        setTextOpacity(
+            typeof config.textOpacity === "number" ? config.textOpacity : 1,
+        );
+        setTextColor(
+            typeof config.textColor === "string"
+                ? config.textColor
+                : "#FFFFFF",
+        );
+        setTextStrokeWidth(
+            typeof config.textStrokeWidth === "number"
+                ? config.textStrokeWidth
+                : 0,
+        );
+        setTextStrokeColor(
+            typeof config.textStrokeColor === "string"
+                ? config.textStrokeColor
+                : "#000000",
+        );
+        setTextGlowAlpha(
+            typeof config.textGlowAlpha === "number"
+                ? config.textGlowAlpha
+                : 1,
+        );
+        setTextGlowSigma(
+            typeof config.textGlowSigma === "number"
+                ? config.textGlowSigma
+                : 100,
+        );
+        setTextGlowColor(
+            typeof config.textGlowColor === "string"
+                ? config.textGlowColor
+                : "#0E3A72",
+        );
+        setTextInnerGlowAlpha(
+            typeof config.textInnerGlowAlpha === "number"
+                ? config.textInnerGlowAlpha
+                : 0.7,
+        );
+        setTextInnerGlowSigma(
+            typeof config.textInnerGlowSigma === "number"
+                ? config.textInnerGlowSigma
+                : 6,
+        );
+        setVideoSelectionMode(
+            config.videoSelectionMode === "specific" ? "specific" : "all",
+        );
+        setSelectedVideoIds(
+            Array.isArray(config.selectedVideoIds) ? config.selectedVideoIds : [],
+        );
+        setLutSelectionMode(
+            config.lutSelectionMode === "specific" ? "specific" : "all",
+        );
+        setSelectedLutIds(
+            Array.isArray(config.selectedLutIds) ? config.selectedLutIds : [],
+        );
         setOverlayId(
             typeof config.overlayId === "string" ? config.overlayId : "none",
         );
@@ -228,25 +404,31 @@ export function SettingsTab() {
         async function load() {
             setLoading(true);
             try {
-                const [recRes, cfgRecRes, videoCfgRes, overlaysRes, accountsRes] =
+                const [recRes, cfgRecRes, videoCfgRes, overlaysRes, accountsRes, videosRes, lutsRes] =
                     await Promise.all([
                         fetch("/api/qf/reciters"),
                         fetch("/api/configuration/reciters"),
                         fetch("/api/configuration/video"),
                         fetch("/api/overlays"),
                         fetch("/api/accounts"),
+                        fetch("/api/videos"),
+                        fetch("/api/luts"),
                     ]);
                 const recData = JSON.parse(await recRes.text());
                 const cfgRecData = JSON.parse(await cfgRecRes.text());
                 const videoCfg = JSON.parse(await videoCfgRes.text());
                 const overlayData = JSON.parse(await overlaysRes.text());
                 const accountsData = JSON.parse(await accountsRes.text());
+                const videosData = JSON.parse(await videosRes.text());
+                const lutsData = JSON.parse(await lutsRes.text());
 
                 if (recData.error) throw new Error(recData.error);
                 if (cfgRecData.error) throw new Error(cfgRecData.error);
                 if (videoCfg.error) throw new Error(videoCfg.error);
                 if (overlayData.error) throw new Error(overlayData.error);
                 if (accountsData.error) throw new Error(accountsData.error);
+                if (videosData.error) throw new Error(videosData.error);
+                if (lutsData.error) throw new Error(lutsData.error);
 
                 const sortedRecitations = [
                     ...(recData.recitations as Recitation[]),
@@ -260,6 +442,8 @@ export function SettingsTab() {
                 }
                 setAccounts(accountsData as AccountSummary[]);
                 setOverlays(overlayData as OverlayAsset[]);
+                setVideos(videosData as VideoAsset[]);
+                setLuts(lutsData as LutAsset[]);
                 applyConfig({
                     ...videoCfg,
                     enabledIds: [...nextEnabledIds],
@@ -326,6 +510,20 @@ export function SettingsTab() {
             overlayId?: string | null;
             overlayBlendMode?: OverlayBlendMode;
             uploadCaptionTemplate?: string;
+            workerUploadIntervalMinutes?: number;
+            textOpacity?: number;
+            textColor?: string;
+            textStrokeWidth?: number;
+            textStrokeColor?: string;
+            textGlowAlpha?: number;
+            textGlowSigma?: number;
+            textGlowColor?: string;
+            textInnerGlowAlpha?: number;
+            textInnerGlowSigma?: number;
+            videoSelectionMode?: string;
+            selectedVideoIds?: string[];
+            lutSelectionMode?: string;
+            selectedLutIds?: string[];
         }) => {
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
             saveTimerRef.current = setTimeout(() => {
@@ -654,6 +852,37 @@ export function SettingsTab() {
                             <TableCell className="whitespace-normal align-top">
                                 <div className="flex flex-col gap-1">
                                     <p className="font-medium text-sm">
+                                        Worker upload interval
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Minutes between automatic worker runs.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={1440}
+                                        step={1}
+                                        value={workerUploadIntervalMinutes}
+                                        onChange={(e) => {
+                                            const next = Number(e.target.value) || 60;
+                                            setWorkerUploadIntervalMinutes(next);
+                                            saveVideoConfig({
+                                                workerUploadIntervalMinutes: next,
+                                            });
+                                        }}
+                                        className="w-full sm:max-w-40"
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
                                         Audio lead
                                     </p>
                                     <p className="text-sm text-muted-foreground">
@@ -824,6 +1053,254 @@ export function SettingsTab() {
                                     <span className="text-xs text-muted-foreground sm:pb-2">
                                         seconds
                                     </span>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Text opacity
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Base opacity for rendered text cards.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-2">
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                        {textOpacity.toFixed(2)}
+                                    </span>
+                                    <Slider
+                                        min={0}
+                                        max={1}
+                                        step={0.01}
+                                        value={[textOpacity]}
+                                        onValueChange={(v) => {
+                                            const next = Array.isArray(v) ? (v[0] ?? 1) : v;
+                                            setTextOpacity(next);
+                                            saveVideoConfig({ textOpacity: next });
+                                        }}
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Text color and stroke
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Configure the main text color and optional stroke.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <Input
+                                        value={textColor}
+                                        onChange={(e) => {
+                                            const next = e.target.value;
+                                            setTextColor(next);
+                                            saveVideoConfig({ textColor: next });
+                                        }}
+                                        placeholder="#FFFFFF"
+                                    />
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={20}
+                                        step={0.5}
+                                        value={textStrokeWidth}
+                                        onChange={(e) => {
+                                            const next = Number(e.target.value) || 0;
+                                            setTextStrokeWidth(next);
+                                            saveVideoConfig({ textStrokeWidth: next });
+                                        }}
+                                        placeholder="Stroke width"
+                                    />
+                                    <Input
+                                        value={textStrokeColor}
+                                        onChange={(e) => {
+                                            const next = e.target.value;
+                                            setTextStrokeColor(next);
+                                            saveVideoConfig({ textStrokeColor: next });
+                                        }}
+                                        placeholder="#000000"
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Outer glow
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Configure glow color, strength, and blur.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <Input
+                                        value={textGlowColor}
+                                        onChange={(e) => {
+                                            const next = e.target.value;
+                                            setTextGlowColor(next);
+                                            saveVideoConfig({ textGlowColor: next });
+                                        }}
+                                        placeholder="#0E3A72"
+                                    />
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={1}
+                                        step={0.01}
+                                        value={textGlowAlpha}
+                                        onChange={(e) => {
+                                            const next = Number(e.target.value) || 0;
+                                            setTextGlowAlpha(next);
+                                            saveVideoConfig({ textGlowAlpha: next });
+                                        }}
+                                        placeholder="Glow alpha"
+                                    />
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={300}
+                                        step={1}
+                                        value={textGlowSigma}
+                                        onChange={(e) => {
+                                            const next = Number(e.target.value) || 0;
+                                            setTextGlowSigma(next);
+                                            saveVideoConfig({ textGlowSigma: next });
+                                        }}
+                                        placeholder="Glow blur"
+                                    />
+                                </div>
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={1}
+                                        step={0.01}
+                                        value={textInnerGlowAlpha}
+                                        onChange={(e) => {
+                                            const next = Number(e.target.value) || 0;
+                                            setTextInnerGlowAlpha(next);
+                                            saveVideoConfig({ textInnerGlowAlpha: next });
+                                        }}
+                                        placeholder="Inner glow alpha"
+                                    />
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={300}
+                                        step={1}
+                                        value={textInnerGlowSigma}
+                                        onChange={(e) => {
+                                            const next = Number(e.target.value) || 0;
+                                            setTextInnerGlowSigma(next);
+                                            saveVideoConfig({ textInnerGlowSigma: next });
+                                        }}
+                                        placeholder="Inner glow blur"
+                                    />
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Allowed videos
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Use all videos or restrict this config to specific uploaded videos.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-3">
+                                    <SearchableSelect
+                                        items={[
+                                            { value: "all", label: "All videos" },
+                                            { value: "specific", label: "Specific videos only" },
+                                        ]}
+                                        value={videoSelectionMode}
+                                        onChange={(value) => {
+                                            setVideoSelectionMode(value);
+                                            saveVideoConfig({ videoSelectionMode: value });
+                                        }}
+                                        placeholder="Select video mode"
+                                        searchPlaceholder="Search modes…"
+                                        emptyLabel="No modes found."
+                                        className="w-full"
+                                    />
+                                    {videoSelectionMode === "specific" && (
+                                        <AssetMultiSelect
+                                            items={videos.map((video) => ({
+                                                id: video._id,
+                                                label: video.name,
+                                                subtitle: video.originalFilename,
+                                            }))}
+                                            value={selectedVideoIds}
+                                            onChange={(next) => {
+                                                setSelectedVideoIds(next);
+                                                saveVideoConfig({ selectedVideoIds: next });
+                                            }}
+                                            placeholder="Select videos"
+                                        />
+                                    )}
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Allowed LUTs
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Use all LUTs or restrict this config to specific LUTs.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex w-full min-w-0 flex-col gap-3">
+                                    <SearchableSelect
+                                        items={[
+                                            { value: "all", label: "All LUTs" },
+                                            { value: "specific", label: "Specific LUTs only" },
+                                        ]}
+                                        value={lutSelectionMode}
+                                        onChange={(value) => {
+                                            setLutSelectionMode(value);
+                                            saveVideoConfig({ lutSelectionMode: value });
+                                        }}
+                                        placeholder="Select LUT mode"
+                                        searchPlaceholder="Search modes…"
+                                        emptyLabel="No modes found."
+                                        className="w-full"
+                                    />
+                                    {lutSelectionMode === "specific" && (
+                                        <AssetMultiSelect
+                                            items={luts.map((lut) => ({
+                                                id: lut._id,
+                                                label: lut.name,
+                                                subtitle: lut.originalFilename,
+                                            }))}
+                                            value={selectedLutIds}
+                                            onChange={(next) => {
+                                                setSelectedLutIds(next);
+                                                saveVideoConfig({ selectedLutIds: next });
+                                            }}
+                                            placeholder="Select LUTs"
+                                        />
+                                    )}
                                 </div>
                             </TableCell>
                         </TableRow>

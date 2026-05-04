@@ -539,9 +539,15 @@ export function SettingsTab() {
                     body: JSON.stringify(next),
                 })
                     .then(async (res) => {
-                        const data = JSON.parse(await res.text()).catch(
-                            () => null,
-                        ) as { error?: string } | null;
+                        const text = await res.text();
+                        let data: { error?: string } | null = null;
+                        try {
+                            data = text
+                                ? (JSON.parse(text) as { error?: string })
+                                : null;
+                        } catch {
+                            data = null;
+                        }
                         if (!res.ok) {
                             throw new Error(
                                 data?.error ??

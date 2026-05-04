@@ -315,6 +315,15 @@ export async function POST(req: NextRequest) {
             vignette,
             exposure,
             saturation,
+            textOpacity,
+            textColor,
+            textStrokeWidth,
+            textStrokeColor,
+            textGlowAlpha,
+            textGlowSigma,
+            textGlowColor,
+            textInnerGlowAlpha,
+            textInnerGlowSigma,
             overlayId,
             overlayBlendMode,
         } = (await req.json()) as {
@@ -330,6 +339,15 @@ export async function POST(req: NextRequest) {
             vignette?: number;
             exposure?: number;
             saturation?: number;
+            textOpacity?: number;
+            textColor?: string;
+            textStrokeWidth?: number;
+            textStrokeColor?: string;
+            textGlowAlpha?: number;
+            textGlowSigma?: number;
+            textGlowColor?: string;
+            textInnerGlowAlpha?: number;
+            textInnerGlowSigma?: number;
             overlayId?: string | null;
             overlayBlendMode?: OverlayBlendMode | null;
         };
@@ -423,37 +441,52 @@ export async function POST(req: NextRequest) {
                   : "normal";
         const textStyleConfig: TextCardStyleConfig = {
             textOpacity:
-                typeof cfg?.textOpacity === "number"
-                    ? clampNumber(cfg.textOpacity, 0, 1)
-                    : TEXT_CARD_ALPHA,
-            textColor: normalizeHexColorString(cfg?.textColor, "#FFFFFF"),
+                typeof textOpacity === "number"
+                    ? clampNumber(textOpacity, 0, 1)
+                    : typeof cfg?.textOpacity === "number"
+                      ? clampNumber(cfg.textOpacity, 0, 1)
+                      : TEXT_CARD_ALPHA,
+            textColor: normalizeHexColorString(
+                textColor ?? cfg?.textColor,
+                "#FFFFFF",
+            ),
             textStrokeWidth:
-                typeof cfg?.textStrokeWidth === "number"
-                    ? clampNumber(cfg.textStrokeWidth, 0, 20)
+                typeof textStrokeWidth === "number"
+                    ? clampNumber(textStrokeWidth, 0, 20)
+                    : typeof cfg?.textStrokeWidth === "number"
+                      ? clampNumber(cfg.textStrokeWidth, 0, 20)
                     : 0,
             textStrokeColor: normalizeHexColorString(
-                cfg?.textStrokeColor,
+                textStrokeColor ?? cfg?.textStrokeColor,
                 "#000000",
             ),
             textGlowAlpha:
-                typeof cfg?.textGlowAlpha === "number"
-                    ? clampNumber(cfg.textGlowAlpha, 0, 1)
+                typeof textGlowAlpha === "number"
+                    ? clampNumber(textGlowAlpha, 0, 1)
+                    : typeof cfg?.textGlowAlpha === "number"
+                      ? clampNumber(cfg.textGlowAlpha, 0, 1)
                     : TEXT_GLOW_ALPHA,
             textGlowSigma:
-                typeof cfg?.textGlowSigma === "number"
-                    ? clampNumber(cfg.textGlowSigma, 0, 300)
+                typeof textGlowSigma === "number"
+                    ? clampNumber(textGlowSigma, 0, 300)
+                    : typeof cfg?.textGlowSigma === "number"
+                      ? clampNumber(cfg.textGlowSigma, 0, 300)
                     : TEXT_GLOW_SIGMA,
             textGlowColor: normalizeHexColorString(
-                cfg?.textGlowColor,
+                textGlowColor ?? cfg?.textGlowColor,
                 "#0E3A72",
             ),
             textInnerGlowAlpha:
-                typeof cfg?.textInnerGlowAlpha === "number"
-                    ? clampNumber(cfg.textInnerGlowAlpha, 0, 1)
+                typeof textInnerGlowAlpha === "number"
+                    ? clampNumber(textInnerGlowAlpha, 0, 1)
+                    : typeof cfg?.textInnerGlowAlpha === "number"
+                      ? clampNumber(cfg.textInnerGlowAlpha, 0, 1)
                     : TEXT_INNER_GLOW_ALPHA,
             textInnerGlowSigma:
-                typeof cfg?.textInnerGlowSigma === "number"
-                    ? clampNumber(cfg.textInnerGlowSigma, 0, 300)
+                typeof textInnerGlowSigma === "number"
+                    ? clampNumber(textInnerGlowSigma, 0, 300)
+                    : typeof cfg?.textInnerGlowSigma === "number"
+                      ? clampNumber(cfg.textInnerGlowSigma, 0, 300)
                     : TEXT_INNER_GLOW_SIGMA,
         };
 

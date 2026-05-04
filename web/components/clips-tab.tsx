@@ -33,6 +33,7 @@ import {
     Loader2,
     MoreHorizontal,
     Pin,
+    Play,
     RotateCcw,
     Search,
     Square,
@@ -1866,18 +1867,21 @@ export function ClipsTab() {
                                         />
                                     </div>
                                 ) : null}
-                                <div className="flex shrink-0 items-end gap-2">
+                                <div className="flex shrink-0 items-end">
                                     {finderAudioSourceMode === "audio" && (
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            size="lg"
+                                            size="icon"
                                             onClick={() =>
                                                 void previewFinderAudioTrim()
                                             }
                                             disabled={!finderAudioId}
+                                            className="h-11 w-11 rounded-r-none"
+                                            title="Preview trimmed audio"
+                                            aria-label="Preview trimmed audio"
                                         >
-                                            Preview audio
+                                            <Play className="size-4" />
                                         </Button>
                                     )}
                                     <Button
@@ -1907,7 +1911,11 @@ export function ClipsTab() {
                                             (finderMode === "saved" &&
                                                 !selectedSavedAyahId)
                                         }
-                                        className="w-full"
+                                        className={
+                                            finderAudioSourceMode === "audio"
+                                                ? "w-full rounded-l-none"
+                                                : "w-full"
+                                        }
                                         title={
                                             finderLoading
                                                 ? "Finding ayah"

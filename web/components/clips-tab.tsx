@@ -220,11 +220,13 @@ interface SavedAyah {
     verseKey: string;
     verseText: string;
     translation?: string | null;
+    preferredRecitationId?: string | null;
     createdAt: string;
     updatedAt: string;
 }
 
 type VerseFinderMode = "random" | "specific" | "saved";
+type AudioSourceMode = "reciter" | "audio";
 
 async function readJson<T>(res: Response): Promise<T> {
     return JSON.parse(await res.text()) as T;
@@ -570,6 +572,8 @@ export function ClipsTab() {
     );
     const [experimentReciterMode, setExperimentReciterMode] =
         useState<string>("random");
+    const [finderAudioSourceMode, setFinderAudioSourceMode] =
+        useState<AudioSourceMode>("reciter");
     const [candidateRecitationId, setCandidateRecitationId] =
         useState<string>("7");
     const [videos, setVideos] = useState<VideoAsset[]>([]);
@@ -624,6 +628,9 @@ export function ClipsTab() {
     const [selectedCustomAudioId, setSelectedCustomAudioId] = useState("");
     const [customAudioStartSeconds, setCustomAudioStartSeconds] = useState(0);
     const [customAudioEndSeconds, setCustomAudioEndSeconds] = useState("");
+    const [finderAudioId, setFinderAudioId] = useState("");
+    const [finderAudioStartSeconds, setFinderAudioStartSeconds] = useState(0);
+    const [finderAudioEndSeconds, setFinderAudioEndSeconds] = useState("");
 
     useEffect(() => {
         async function loadAssets() {
@@ -869,7 +876,13 @@ export function ClipsTab() {
     async function fetchSavedVerse(savedAyahId: string) {
         const savedAyah = savedAyaat.find((item) => item._id === savedAyahId);
         if (!savedAyah) return;
-        const nextRecitationId = chooseFinderRecitationId();
+        const forcedRecitationId = savedAyah.preferredRecitationId ?? null;
+        if (savedAyah.preferredRecitationId) {
+            setExperimentReciterMode(savedAyah.preferredRecitationId);
+            setCandidateRecitationId(savedAyah.preferredRecitationId);
+        }
+        const nextRecitationId =
+            forcedRecitationId || chooseFinderRecitationId();
         setFinderLoading(true);
         setCandidateVerse(null);
         try {
@@ -928,6 +941,10 @@ export function ClipsTab() {
                     verseKey: verse.verse_key,
                     verseText: verse.text_uthmani,
                     translation,
+                    preferredRecitationId:
+                        experimentReciterMode !== "random"
+                            ? candidateRecitationId
+                            : null,
                 }),
             });
             const data = JSON.parse(await res.text()) as SavedAyah & {
@@ -943,6 +960,37 @@ export function ClipsTab() {
             toast.error(e instanceof Error ? e.message : String(e));
         } finally {
             setSavingAyah(false);
+        }
+    }
+
+    async function updateSavedAyahPreferredRecitation(
+        savedAyahId: string,
+        preferredRecitationId: string | null,
+    ) {
+        try {
+            const res = await fetch("/api/saved-ayaat", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: savedAyahId,
+                    preferredRecitationId,
+                }),
+            });
+            const data = (await readJson<SavedAyah | { error?: string }>(res));
+            if (!res.ok || ("error" in data && data.error)) {
+                throw new Error(
+                    "error" in data
+                        ? data.error ?? "Failed to update saved ayah"
+                        : "Failed to update saved ayah",
+                );
+            }
+            setSavedAyaat((current) =>
+                current.map((item) =>
+                    item._id === savedAyahId ? (data as SavedAyah) : item,
+                ),
+            );
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
         }
     }
 
@@ -1088,10 +1136,47 @@ export function ClipsTab() {
         const verseForRun = options?.verse ?? selectedVerseForRender;
         const recitationIdForRun =
             options?.recitationId ?? candidateRecitationId;
-        const customAudioIdForRun = verseForRun ? null : selectedCustomAudioId;
+        if (
+            verseForRun &&
+            finderAudioSourceMode === "audio" &&
+            !finderAudioId
+        ) {
+            toast.error("Select an uploaded audio source first.");
+            return;
+        }
+        if (
+            verseForRun &&
+            finderAudioSourceMode === "audio" &&
+            !textOverride?.title
+        ) {
+            toast.error(
+                "Set a text override before using uploaded audio on an ayah clip.",
+            );
+            return;
+        }
+        const customAudioIdForRun = verseForRun
+            ? finderAudioSourceMode === "audio"
+                ? finderAudioId
+                : null
+            : selectedCustomAudioId;
+        const customAudioStartForRun = verseForRun
+            ? finderAudioSourceMode === "audio"
+                ? finderAudioStartSeconds
+                : null
+            : customAudioIdForRun
+              ? customAudioStartSeconds
+              : null;
         const parsedCustomAudioEnd =
-            customAudioEndSeconds.trim().length > 0
-                ? Number(customAudioEndSeconds)
+            (
+                verseForRun && finderAudioSourceMode === "audio"
+                    ? finderAudioEndSeconds
+                    : customAudioEndSeconds
+            ).trim().length > 0
+                ? Number(
+                      verseForRun && finderAudioSourceMode === "audio"
+                          ? finderAudioEndSeconds
+                          : customAudioEndSeconds,
+                  )
                 : null;
         const customAudioEndForRun =
             typeof parsedCustomAudioEnd === "number" &&
@@ -1110,9 +1195,7 @@ export function ClipsTab() {
                     recitationId: verseForRun ? recitationIdForRun : null,
                     textOverride: textOverride ?? null,
                     customAudioId: customAudioIdForRun || null,
-                    customAudioStartSeconds: customAudioIdForRun
-                        ? customAudioStartSeconds
-                        : null,
+                    customAudioStartSeconds: customAudioStartForRun,
                     customAudioEndSeconds: customAudioIdForRun
                         ? customAudioEndForRun
                         : null,
@@ -1129,9 +1212,14 @@ export function ClipsTab() {
             setSelectedCustomAudioId("");
             setCustomAudioStartSeconds(0);
             setCustomAudioEndSeconds("");
+            setFinderAudioId("");
+            setFinderAudioStartSeconds(0);
+            setFinderAudioEndSeconds("");
             toast.success(
                 customAudioIdForRun
-                    ? "Custom clip started."
+                    ? verseForRun
+                        ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
+                        : "Custom clip started."
                     : verseForRun
                     ? `Pipeline started for ${verseForRun.verse_key}.`
                     : "Pipeline started.",
@@ -1350,14 +1438,25 @@ export function ClipsTab() {
             const chapterName = Number.isFinite(chapterId)
                 ? chapters[chapterId]
                 : undefined;
+            const preferredReciter = item.preferredRecitationId
+                ? recitations.find(
+                      (recitation) =>
+                          String(recitation.id) === item.preferredRecitationId,
+                  )?.reciter_name ??
+                  RECITERS.find(
+                      (reciter) => reciter.id === item.preferredRecitationId,
+                  )?.label
+                : null;
 
             return {
                 value: item._id,
                 label: item.verseKey,
-                subtitle: chapterName ?? "Unknown surah",
+                subtitle: preferredReciter
+                    ? `${chapterName ?? "Unknown surah"} · ${preferredReciter}`
+                    : (chapterName ?? "Unknown surah"),
             };
         });
-    }, [chapters, savedAyaat]);
+    }, [chapters, recitations, savedAyaat]);
 
     const textPresetOptions = useMemo(
         () =>
@@ -1382,6 +1481,22 @@ export function ClipsTab() {
     const selectedCustomAudio = useMemo(
         () => audios.find((audio) => audio._id === selectedCustomAudioId) ?? null,
         [audios, selectedCustomAudioId],
+    );
+
+    const audioSourceOptions = useMemo(
+        () => [
+            {
+                value: "reciter",
+                label: "Reciter audio",
+                subtitle: "Use Quran recitation audio",
+            },
+            {
+                value: "audio",
+                label: "Uploaded audio",
+                subtitle: "Use one of your uploaded audio files",
+            },
+        ],
+        [],
     );
 
     const candidateVerseIsSaved = useMemo(
@@ -1539,21 +1654,107 @@ export function ClipsTab() {
                                             disabled={savedAyaat.length === 0}
                                         />
                                     </div>
-                                ) : (
-                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Reciter
-                                        </Label>
+                                ) : null}
+                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                        Audio source
+                                    </Label>
+                                    <SearchableSelect
+                                        items={audioSourceOptions}
+                                        value={finderAudioSourceMode}
+                                        onChange={(value) =>
+                                            setFinderAudioSourceMode(
+                                                value as AudioSourceMode,
+                                            )
+                                        }
+                                        placeholder="Select audio source"
+                                        searchPlaceholder="Search audio sources…"
+                                        emptyLabel="No audio sources found."
+                                        className="w-full min-w-0"
+                                    />
+                                </div>
+                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                        {finderAudioSourceMode === "audio"
+                                            ? "Uploaded audio"
+                                            : "Reciter"}
+                                    </Label>
+                                    {finderAudioSourceMode === "audio" ? (
+                                        <SearchableSelect
+                                            items={customAudioOptions}
+                                            value={finderAudioId}
+                                            onChange={setFinderAudioId}
+                                            placeholder="Choose uploaded audio"
+                                            searchPlaceholder="Search audio…"
+                                            emptyLabel="No audio uploaded yet."
+                                            className="w-full min-w-0"
+                                            disabled={
+                                                customAudioOptions.length === 0
+                                            }
+                                        />
+                                    ) : (
                                         <SearchableSelect
                                             items={experimentReciterOptions}
                                             value={experimentReciterMode}
-                                            onChange={setExperimentReciterMode}
+                                            onChange={(value) => {
+                                                setExperimentReciterMode(value);
+                                                if (finderMode === "saved" && selectedSavedAyahId) {
+                                                    void updateSavedAyahPreferredRecitation(
+                                                        selectedSavedAyahId,
+                                                        value === "random"
+                                                            ? null
+                                                            : value,
+                                                    );
+                                                }
+                                            }}
                                             placeholder="Select reciter"
                                             searchPlaceholder="Search reciters…"
                                             emptyLabel="No reciters found."
                                             className="w-full min-w-0"
                                         />
-                                    </div>
+                                    )}
+                                </div>
+                                {finderAudioSourceMode === "audio" && (
+                                    <>
+                                        <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Trim start
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step={0.1}
+                                                value={finderAudioStartSeconds}
+                                                onChange={(e) =>
+                                                    setFinderAudioStartSeconds(
+                                                        Math.max(
+                                                            0,
+                                                            Number(
+                                                                e.target.value,
+                                                            ) || 0,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Trim end
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step={0.1}
+                                                value={finderAudioEndSeconds}
+                                                onChange={(e) =>
+                                                    setFinderAudioEndSeconds(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Full"
+                                            />
+                                        </div>
+                                    </>
                                 )}
                                 {finderMode === "specific" && (
                                     <>

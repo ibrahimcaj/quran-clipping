@@ -14,10 +14,42 @@ const PIXELATE_SIZE = 720;
 const TEXT_CARD_ALPHA = 1.0;
 const TEXT_GLOW_ALPHA = 1;
 const TEXT_GLOW_SIGMA = 4;
-const TEXT_GLOW_COLOR = "0x0E3A72";
 const TEXT_INNER_GLOW_ALPHA = 0.7;
 const TEXT_INNER_GLOW_SIGMA = 6;
 const VIDEO_PIXELATE_SIZE = 720;
+
+type TextCardStyleConfig = {
+    textOpacity: number;
+    textColor: string;
+    textStrokeWidth: number;
+    textStrokeColor: string;
+    textGlowAlpha: number;
+    textGlowSigma: number;
+    textGlowColor: string;
+    textInnerGlowAlpha: number;
+    textInnerGlowSigma: number;
+};
+
+function clampNumber(value: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function normalizeHexColorString(value: unknown, fallback: string) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    return /^#?[0-9a-fA-F]{6}$/.test(trimmed)
+        ? `#${trimmed.replace(/^#/, "").toUpperCase()}`
+        : fallback;
+}
+
+function hexToAssColor(hex: string) {
+    const value = hex.replace(/^#/, "").toUpperCase();
+    return `&H00${value.slice(4, 6)}${value.slice(2, 4)}${value.slice(0, 2)}`;
+}
+
+function hexToFfmpegColor(hex: string) {
+    return `0x${hex.replace(/^#/, "").toUpperCase()}`;
+}
 
 function escapeAss(t: string) {
     return t
@@ -117,9 +149,23 @@ function makeAssCard(
     scaleX = 80,
     scaleY = 125,
     lineSpacing = 8,
+    styleConfig?: TextCardStyleConfig,
 ): string {
     const cy = TEXT_CARD_SIZE / 2;
-    const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
+    const resolvedStyle = styleConfig ?? {
+        textOpacity: TEXT_CARD_ALPHA,
+        textColor: "#FFFFFF",
+        textStrokeWidth: 0,
+        textStrokeColor: "#000000",
+        textGlowAlpha: TEXT_GLOW_ALPHA,
+        textGlowSigma: TEXT_GLOW_SIGMA,
+        textGlowColor: "#0E3A72",
+        textInnerGlowAlpha: TEXT_INNER_GLOW_ALPHA,
+        textInnerGlowSigma: TEXT_INNER_GLOW_SIGMA,
+    };
+    const primaryColor = hexToAssColor(resolvedStyle.textColor);
+    const outlineColor = hexToAssColor(resolvedStyle.textStrokeColor);
+    const base = `${primaryColor},${primaryColor},${outlineColor},&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,${resolvedStyle.textStrokeWidth},0`;
     const hasSubtitle = subtitle.trim().length > 0;
     const maxTextWidth = TEXT_CARD_SIZE * 0.78;
     const titleLines = wrapText(title, titleFontSize, scaleX, maxTextWidth);
@@ -375,6 +421,41 @@ export async function POST(req: NextRequest) {
                 : typeof cfg?.overlayBlendMode === "string"
                   ? cfg.overlayBlendMode
                   : "normal";
+        const textStyleConfig: TextCardStyleConfig = {
+            textOpacity:
+                typeof cfg?.textOpacity === "number"
+                    ? clampNumber(cfg.textOpacity, 0, 1)
+                    : TEXT_CARD_ALPHA,
+            textColor: normalizeHexColorString(cfg?.textColor, "#FFFFFF"),
+            textStrokeWidth:
+                typeof cfg?.textStrokeWidth === "number"
+                    ? clampNumber(cfg.textStrokeWidth, 0, 20)
+                    : 0,
+            textStrokeColor: normalizeHexColorString(
+                cfg?.textStrokeColor,
+                "#000000",
+            ),
+            textGlowAlpha:
+                typeof cfg?.textGlowAlpha === "number"
+                    ? clampNumber(cfg.textGlowAlpha, 0, 1)
+                    : TEXT_GLOW_ALPHA,
+            textGlowSigma:
+                typeof cfg?.textGlowSigma === "number"
+                    ? clampNumber(cfg.textGlowSigma, 0, 300)
+                    : TEXT_GLOW_SIGMA,
+            textGlowColor: normalizeHexColorString(
+                cfg?.textGlowColor,
+                "#0E3A72",
+            ),
+            textInnerGlowAlpha:
+                typeof cfg?.textInnerGlowAlpha === "number"
+                    ? clampNumber(cfg.textInnerGlowAlpha, 0, 1)
+                    : TEXT_INNER_GLOW_ALPHA,
+            textInnerGlowSigma:
+                typeof cfg?.textInnerGlowSigma === "number"
+                    ? clampNumber(cfg.textInnerGlowSigma, 0, 300)
+                    : TEXT_INNER_GLOW_SIGMA,
+        };
 
         if (
             !overlayPath &&
@@ -437,6 +518,7 @@ export async function POST(req: NextRequest) {
                 safeScaleX,
                 safeScaleY,
                 safeLineSpacing,
+                textStyleConfig,
             ),
             "utf8",
         );
@@ -452,14 +534,14 @@ export async function POST(req: NextRequest) {
             [
                 `[0:v]format=rgba,ass=${esc},split=3[b][g][n]`,
                 `[b]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,format=gray[sm]`,
-                `[g]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${TEXT_GLOW_SIGMA},format=gray[gm]`,
-                `[n]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${TEXT_INNER_GLOW_SIGMA},format=gray[nm]`,
-                `color=c=white:s=1080x1080:r=1,format=rgba[wh]`,
-                `color=c=white:s=1080x1080:r=1,format=rgba[iwh]`,
-                `color=c=${TEXT_GLOW_COLOR}:s=1080x1080:r=1,format=rgba[gc]`,
-                `[sm]colorchannelmixer=aa=${TEXT_CARD_ALPHA}[sa]`,
-                `[gm]colorchannelmixer=aa=${TEXT_GLOW_ALPHA}[ga]`,
-                `[nm]colorchannelmixer=aa=${TEXT_INNER_GLOW_ALPHA}[na]`,
+                `[g]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${textStyleConfig.textGlowSigma},format=gray[gm]`,
+                `[n]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${textStyleConfig.textInnerGlowSigma},format=gray[nm]`,
+                `color=c=${hexToFfmpegColor(textStyleConfig.textColor)}:s=1080x1080:r=1,format=rgba[wh]`,
+                `color=c=${hexToFfmpegColor(textStyleConfig.textColor)}:s=1080x1080:r=1,format=rgba[iwh]`,
+                `color=c=${hexToFfmpegColor(textStyleConfig.textGlowColor)}:s=1080x1080:r=1,format=rgba[gc]`,
+                `[sm]colorchannelmixer=aa=${textStyleConfig.textOpacity}[sa]`,
+                `[gm]colorchannelmixer=aa=${textStyleConfig.textGlowAlpha}[ga]`,
+                `[nm]colorchannelmixer=aa=${textStyleConfig.textInnerGlowAlpha}[na]`,
                 `[wh][sa]alphamerge[sh]`,
                 `[gc][ga]alphamerge[gl]`,
                 `[iwh][na]alphamerge[ig]`,

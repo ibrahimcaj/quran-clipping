@@ -257,6 +257,7 @@ export function SettingsTab() {
     const [copyingConfig, setCopyingConfig] = useState(false);
     const [loading, setLoading] = useState(true);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const saveRequestIdRef = useRef(0);
 
     function applyConfig(config: {
         enabledIds?: number[];
@@ -527,6 +528,7 @@ export function SettingsTab() {
         }) => {
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
             saveTimerRef.current = setTimeout(() => {
+                const requestId = ++saveRequestIdRef.current;
                 const url =
                     selectedConfigAccountId === "__global__"
                         ? "/api/configuration/video"
@@ -535,7 +537,30 @@ export function SettingsTab() {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(next),
-                }).catch(() => {});
+                })
+                    .then(async (res) => {
+                        const data = JSON.parse(await res.text()).catch(
+                            () => null,
+                        ) as { error?: string } | null;
+                        if (!res.ok) {
+                            throw new Error(
+                                data?.error ??
+                                    "Failed to update configuration",
+                            );
+                        }
+                        if (requestId === saveRequestIdRef.current) {
+                            toast.success("Configuration updated.", {
+                                id: "settings-config-updated",
+                            });
+                        }
+                    })
+                    .catch((error: unknown) => {
+                        toast.error(
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                        );
+                    });
             }, 250);
         },
         [selectedConfigAccountId],
@@ -556,6 +581,9 @@ export function SettingsTab() {
             const data = JSON.parse(await res.text());
             if (!res.ok)
                 throw new Error(data.error ?? "Failed to save reciters");
+            toast.success("Configuration updated.", {
+                id: "settings-config-updated",
+            });
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {

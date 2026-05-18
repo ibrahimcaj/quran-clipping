@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AccountsTab } from "@/components/accounts-tab";
+import { AudiosTab } from "@/components/audios-tab";
 import { LutsTab } from "@/components/luts-tab";
 import { OverlaysTab } from "@/components/overlays-tab";
 import { ClipsTab } from "@/components/clips-tab";
@@ -22,6 +23,7 @@ export default function Home() {
                     {view === "stills" && <StillImagesTab />}
                     {view === "settings" && <SettingsTab />}
                     {view === "videos" && <VideosTab />}
+                    {view === "audios" && <AudiosTab />}
                     {view === "luts" && <LutsTab />}
                     {view === "overlays" && <OverlaysTab />}
                     {view === "accounts" && <AccountsTab />}

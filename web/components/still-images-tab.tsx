@@ -26,6 +26,15 @@ interface VideoConfig {
     saturation?: number;
     overlayId?: string | null;
     overlayBlendMode?: OverlayBlendMode;
+    textOpacity?: number;
+    textColor?: string;
+    textStrokeWidth?: number;
+    textStrokeColor?: string;
+    textGlowAlpha?: number;
+    textGlowSigma?: number;
+    textGlowColor?: string;
+    textInnerGlowAlpha?: number;
+    textInnerGlowSigma?: number;
 }
 
 export function StillImagesTab() {
@@ -47,6 +56,15 @@ export function StillImagesTab() {
     const [vignette, setVignette] = useState(0);
     const [exposure, setExposure] = useState(0);
     const [saturation, setSaturation] = useState(1);
+    const [textOpacity, setTextOpacity] = useState(1);
+    const [textColor, setTextColor] = useState("#FFFFFF");
+    const [textStrokeWidth, setTextStrokeWidth] = useState(0);
+    const [textStrokeColor, setTextStrokeColor] = useState("#000000");
+    const [textGlowAlpha, setTextGlowAlpha] = useState(1);
+    const [textGlowSigma, setTextGlowSigma] = useState(100);
+    const [textGlowColor, setTextGlowColor] = useState("#0E3A72");
+    const [textInnerGlowAlpha, setTextInnerGlowAlpha] = useState(0.7);
+    const [textInnerGlowSigma, setTextInnerGlowSigma] = useState(6);
     const [loading, setLoading] = useState(false);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
 
@@ -84,6 +102,49 @@ export function StillImagesTab() {
                         ? cfg.overlayBlendMode
                         : "normal",
                 );
+                setTextOpacity(
+                    typeof cfg.textOpacity === "number" ? cfg.textOpacity : 1,
+                );
+                setTextColor(
+                    typeof cfg.textColor === "string"
+                        ? cfg.textColor
+                        : "#FFFFFF",
+                );
+                setTextStrokeWidth(
+                    typeof cfg.textStrokeWidth === "number"
+                        ? cfg.textStrokeWidth
+                        : 0,
+                );
+                setTextStrokeColor(
+                    typeof cfg.textStrokeColor === "string"
+                        ? cfg.textStrokeColor
+                        : "#000000",
+                );
+                setTextGlowAlpha(
+                    typeof cfg.textGlowAlpha === "number"
+                        ? cfg.textGlowAlpha
+                        : 1,
+                );
+                setTextGlowSigma(
+                    typeof cfg.textGlowSigma === "number"
+                        ? cfg.textGlowSigma
+                        : 100,
+                );
+                setTextGlowColor(
+                    typeof cfg.textGlowColor === "string"
+                        ? cfg.textGlowColor
+                        : "#0E3A72",
+                );
+                setTextInnerGlowAlpha(
+                    typeof cfg.textInnerGlowAlpha === "number"
+                        ? cfg.textInnerGlowAlpha
+                        : 0.7,
+                );
+                setTextInnerGlowSigma(
+                    typeof cfg.textInnerGlowSigma === "number"
+                        ? cfg.textInnerGlowSigma
+                        : 6,
+                );
             } catch (e) {
                 toast.error(e instanceof Error ? e.message : String(e));
             }
@@ -118,6 +179,15 @@ export function StillImagesTab() {
                     vignette,
                     exposure,
                     saturation,
+                    textOpacity,
+                    textColor,
+                    textStrokeWidth,
+                    textStrokeColor,
+                    textGlowAlpha,
+                    textGlowSigma,
+                    textGlowColor,
+                    textInnerGlowAlpha,
+                    textInnerGlowSigma,
                     overlayId: overlayId === "none" ? null : overlayId,
                     overlayBlendMode,
                 }),
@@ -362,6 +432,132 @@ export function StillImagesTab() {
                                 onValueChange={(v) =>
                                     setVignette(
                                         Array.isArray(v) ? (v[0] ?? 0) : v,
+                                    )
+                                }
+                            />
+                        </div>
+                    </div>
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-3">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Text color</Label>
+                            <Input
+                                value={textColor}
+                                onChange={(e) => setTextColor(e.target.value)}
+                                placeholder="#FFFFFF"
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Stroke width</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={20}
+                                step={0.5}
+                                value={textStrokeWidth}
+                                onChange={(e) =>
+                                    setTextStrokeWidth(
+                                        Number(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Stroke color</Label>
+                            <Input
+                                value={textStrokeColor}
+                                onChange={(e) =>
+                                    setTextStrokeColor(e.target.value)
+                                }
+                                placeholder="#000000"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-3">
+                        <div className="flex w-full min-w-0 flex-col gap-2">
+                            <Label>Text opacity</Label>
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                                {textOpacity.toFixed(2)}
+                            </span>
+                            <Slider
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={[textOpacity]}
+                                onValueChange={(v) =>
+                                    setTextOpacity(
+                                        Array.isArray(v) ? (v[0] ?? 1) : v,
+                                    )
+                                }
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Glow color</Label>
+                            <Input
+                                value={textGlowColor}
+                                onChange={(e) =>
+                                    setTextGlowColor(e.target.value)
+                                }
+                                placeholder="#0E3A72"
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Glow alpha</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={textGlowAlpha}
+                                onChange={(e) =>
+                                    setTextGlowAlpha(
+                                        Number(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                        </div>
+                    </div>
+                    <div className="grid w-full min-w-0 gap-4 sm:grid-cols-3">
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Glow blur</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={300}
+                                step={1}
+                                value={textGlowSigma}
+                                onChange={(e) =>
+                                    setTextGlowSigma(
+                                        Number(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Inner glow alpha</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={textInnerGlowAlpha}
+                                onChange={(e) =>
+                                    setTextInnerGlowAlpha(
+                                        Number(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                        </div>
+                        <div className="flex w-full min-w-0 flex-col gap-1.5">
+                            <Label>Inner glow blur</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={300}
+                                step={1}
+                                value={textInnerGlowSigma}
+                                onChange={(e) =>
+                                    setTextInnerGlowSigma(
+                                        Number(e.target.value) || 0,
                                     )
                                 }
                             />

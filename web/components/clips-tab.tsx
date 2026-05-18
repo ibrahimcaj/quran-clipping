@@ -33,6 +33,7 @@ import {
     Loader2,
     MoreHorizontal,
     Pin,
+    Play,
     RotateCcw,
     Search,
     Square,
@@ -49,6 +50,7 @@ import type { OverlayBlendMode } from "@/lib/ffmpeg-experiments";
 import { AYAHS_PER_SURAH } from "@/lib/quran";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Progress } from "@/components/ui/progress";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 // Confirmed URL patterns from api.quran.com for each recitation ID.
 // IDs 6/11/12 use a separate everyayah mirror; all others use audio.qurancdn.com.
@@ -150,6 +152,27 @@ interface VideoAsset {
     name: string;
 }
 
+interface AudioAsset {
+    _id: string;
+    originalFilename: string;
+    name: string;
+    defaultStartSeconds?: number;
+    defaultEndSeconds?: number | null;
+}
+
+interface TextOverridePreset {
+    _id: string;
+    name: string;
+    title: string;
+    subtitle: string;
+    titleFontSize: number;
+    subtitleFontSize: number;
+    scaleX: number;
+    scaleY: number;
+    lineSpacing: number;
+    uploadCaptionOverride?: string;
+}
+
 interface Recitation {
     id: number;
     reciter_name: string;
@@ -187,6 +210,7 @@ interface ExperimentAsset {
         error?: string;
     }[];
     hasOutputFile?: boolean;
+    customAudioId?: string | null;
     createdAt: string;
 }
 
@@ -200,11 +224,13 @@ interface SavedAyah {
     verseKey: string;
     verseText: string;
     translation?: string | null;
+    preferredRecitationId?: string | null;
     createdAt: string;
     updatedAt: string;
 }
 
 type VerseFinderMode = "random" | "specific" | "saved";
+type AudioSourceMode = "reciter" | "audio";
 
 async function readJson<T>(res: Response): Promise<T> {
     return JSON.parse(await res.text()) as T;
@@ -550,9 +576,13 @@ export function ClipsTab() {
     );
     const [experimentReciterMode, setExperimentReciterMode] =
         useState<string>("random");
+    const [finderAudioSourceMode, setFinderAudioSourceMode] =
+        useState<AudioSourceMode>("reciter");
     const [candidateRecitationId, setCandidateRecitationId] =
         useState<string>("7");
     const [videos, setVideos] = useState<VideoAsset[]>([]);
+    const [audios, setAudios] = useState<AudioAsset[]>([]);
+    const [textPresets, setTextPresets] = useState<TextOverridePreset[]>([]);
     const [experiments, setExperiments] = useState<ExperimentAsset[]>([]);
     const [chapters, setChapters] = useState<Record<number, string>>({});
     const [, setExperimentLoading] = useState<string | null>(null);
@@ -575,8 +605,11 @@ export function ClipsTab() {
         scaleX: number;
         scaleY: number;
         lineSpacing: number;
+        uploadCaptionOverride: string;
     } | null>(null);
     const [textOverrideOpen, setTextOverrideOpen] = useState(false);
+    const [selectedTextPresetId, setSelectedTextPresetId] = useState("");
+    const [textPresetName, setTextPresetName] = useState("");
     const [textOverrideDraftTitle, setTextOverrideDraftTitle] = useState("");
     const [textOverrideDraftSubtitle, setTextOverrideDraftSubtitle] =
         useState("");
@@ -590,6 +623,17 @@ export function ClipsTab() {
     const [textOverrideDraftScaleY, setTextOverrideDraftScaleY] = useState(125);
     const [textOverrideDraftLineSpacing, setTextOverrideDraftLineSpacing] =
         useState(-6);
+    const [
+        textOverrideDraftUploadCaptionOverride,
+        setTextOverrideDraftUploadCaptionOverride,
+    ] = useState("");
+    const [savingTextPreset, setSavingTextPreset] = useState(false);
+    const [deletingTextPreset, setDeletingTextPreset] = useState(false);
+    const [finderAudioId, setFinderAudioId] = useState("");
+    const [finderAudioStartSeconds, setFinderAudioStartSeconds] = useState(0);
+    const [finderAudioEndSeconds, setFinderAudioEndSeconds] = useState("");
+    const finderAudioPreviewRef = useRef<HTMLAudioElement>(null);
+    const finderAudioPreviewTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         async function loadAssets() {
@@ -597,6 +641,8 @@ export function ClipsTab() {
             try {
                 const [
                     videosRes,
+                    audiosRes,
+                    textPresetsRes,
                     experimentsRes,
                     chaptersRes,
                     reciterCfgRes,
@@ -605,6 +651,8 @@ export function ClipsTab() {
                     savedAyaatRes,
                 ] = await Promise.all([
                     fetch("/api/videos"),
+                    fetch("/api/audios"),
+                    fetch("/api/text-overrides"),
                     fetch("/api/ffmpeg/experiments"),
                     fetch("/api/qf/chapters"),
                     fetch("/api/configuration/reciters"),
@@ -612,9 +660,15 @@ export function ClipsTab() {
                     fetch("/api/configuration/video"),
                     fetch("/api/saved-ayaat"),
                 ]);
-                const videosData = await readJson<VideoAsset[] | { error?: string }>(
-                    videosRes,
-                );
+                const videosData = await readJson<
+                    VideoAsset[] | { error?: string }
+                >(videosRes);
+                const audiosData = await readJson<
+                    AudioAsset[] | { error?: string }
+                >(audiosRes);
+                const textPresetsData = await readJson<
+                    TextOverridePreset[] | { error?: string }
+                >(textPresetsRes);
                 const experimentsData = await readJson<
                     ExperimentAsset[] | { error?: string }
                 >(experimentsRes);
@@ -649,6 +703,12 @@ export function ClipsTab() {
                 if ("error" in videosData && videosData.error) {
                     throw new Error(videosData.error);
                 }
+                if ("error" in audiosData && audiosData.error) {
+                    throw new Error(audiosData.error);
+                }
+                if ("error" in textPresetsData && textPresetsData.error) {
+                    throw new Error(textPresetsData.error);
+                }
                 if ("error" in experimentsData && experimentsData.error) {
                     throw new Error(experimentsData.error);
                 }
@@ -660,6 +720,10 @@ export function ClipsTab() {
                 }
 
                 setVideos(ensureArray<VideoAsset>(videosData));
+                setAudios(ensureArray<AudioAsset>(audiosData));
+                setTextPresets(
+                    ensureArray<TextOverridePreset>(textPresetsData),
+                );
                 setExperiments(ensureArray<ExperimentAsset>(experimentsData));
                 setRecitations(
                     [...(reciterData.recitations ?? [])].sort((a, b) =>
@@ -713,8 +777,8 @@ export function ClipsTab() {
                     const detail = await readJson<
                         ExperimentAsset | { error?: string }
                     >(detailRes);
-                    if (!("error" in detail)) {
-                        setSelectedExperiment(detail);
+                    if (!Array.isArray(detail) && !("error" in detail)) {
+                        setSelectedExperiment(detail as ExperimentAsset);
                     }
                 }
             } catch {
@@ -815,7 +879,13 @@ export function ClipsTab() {
     async function fetchSavedVerse(savedAyahId: string) {
         const savedAyah = savedAyaat.find((item) => item._id === savedAyahId);
         if (!savedAyah) return;
-        const nextRecitationId = chooseFinderRecitationId();
+        const forcedRecitationId = savedAyah.preferredRecitationId ?? null;
+        if (savedAyah.preferredRecitationId) {
+            setExperimentReciterMode(savedAyah.preferredRecitationId);
+            setCandidateRecitationId(savedAyah.preferredRecitationId);
+        }
+        const nextRecitationId =
+            forcedRecitationId || chooseFinderRecitationId();
         setFinderLoading(true);
         setCandidateVerse(null);
         try {
@@ -874,6 +944,10 @@ export function ClipsTab() {
                     verseKey: verse.verse_key,
                     verseText: verse.text_uthmani,
                     translation,
+                    preferredRecitationId:
+                        experimentReciterMode !== "random"
+                            ? candidateRecitationId
+                            : null,
                 }),
             });
             const data = JSON.parse(await res.text()) as SavedAyah & {
@@ -892,7 +966,40 @@ export function ClipsTab() {
         }
     }
 
+    async function updateSavedAyahPreferredRecitation(
+        savedAyahId: string,
+        preferredRecitationId: string | null,
+    ) {
+        try {
+            const res = await fetch("/api/saved-ayaat", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: savedAyahId,
+                    preferredRecitationId,
+                }),
+            });
+            const data = await readJson<SavedAyah | { error?: string }>(res);
+            if (!res.ok || ("error" in data && data.error)) {
+                throw new Error(
+                    "error" in data
+                        ? (data.error ?? "Failed to update saved ayah")
+                        : "Failed to update saved ayah",
+                );
+            }
+            setSavedAyaat((current) =>
+                current.map((item) =>
+                    item._id === savedAyahId ? (data as SavedAyah) : item,
+                ),
+            );
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        }
+    }
+
     function openTextOverrideDialog() {
+        setSelectedTextPresetId("");
+        setTextPresetName("");
         setTextOverrideDraftTitle(textOverride?.title ?? "");
         setTextOverrideDraftSubtitle(textOverride?.subtitle ?? "");
         setTextOverrideDraftTitleFontSize(textOverride?.titleFontSize ?? 36);
@@ -902,7 +1009,94 @@ export function ClipsTab() {
         setTextOverrideDraftScaleX(textOverride?.scaleX ?? 80);
         setTextOverrideDraftScaleY(textOverride?.scaleY ?? 125);
         setTextOverrideDraftLineSpacing(textOverride?.lineSpacing ?? -6);
+        setTextOverrideDraftUploadCaptionOverride(
+            textOverride?.uploadCaptionOverride ?? "",
+        );
         setTextOverrideOpen(true);
+    }
+
+    function applyTextPreset(presetId: string) {
+        const preset = textPresets.find((item) => item._id === presetId);
+        if (!preset) return;
+        setSelectedTextPresetId(presetId);
+        setTextPresetName(preset.name);
+        setTextOverrideDraftTitle(preset.title);
+        setTextOverrideDraftSubtitle(preset.subtitle);
+        setTextOverrideDraftTitleFontSize(preset.titleFontSize);
+        setTextOverrideDraftSubtitleFontSize(preset.subtitleFontSize);
+        setTextOverrideDraftScaleX(preset.scaleX);
+        setTextOverrideDraftScaleY(preset.scaleY);
+        setTextOverrideDraftLineSpacing(preset.lineSpacing);
+        setTextOverrideDraftUploadCaptionOverride(
+            preset.uploadCaptionOverride ?? "",
+        );
+    }
+
+    async function saveTextPreset() {
+        const title = textOverrideDraftTitle.trim();
+        const name = textPresetName.trim();
+        if (!name || !title) {
+            toast.error("Preset name and title are required.");
+            return;
+        }
+
+        setSavingTextPreset(true);
+        try {
+            const res = await fetch("/api/text-overrides", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name,
+                    title,
+                    subtitle: textOverrideDraftSubtitle.trim(),
+                    titleFontSize: textOverrideDraftTitleFontSize,
+                    subtitleFontSize: textOverrideDraftSubtitleFontSize,
+                    scaleX: textOverrideDraftScaleX,
+                    scaleY: textOverrideDraftScaleY,
+                    lineSpacing: textOverrideDraftLineSpacing,
+                    uploadCaptionOverride:
+                        textOverrideDraftUploadCaptionOverride.trim(),
+                }),
+            });
+            const data = JSON.parse(await res.text());
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to save text preset");
+            }
+            setTextPresets((current) => [data, ...current]);
+            setSelectedTextPresetId(data._id);
+            toast.success("Text preset saved.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        } finally {
+            setSavingTextPreset(false);
+        }
+    }
+
+    async function deleteTextPreset() {
+        if (!selectedTextPresetId) return;
+        setDeletingTextPreset(true);
+        try {
+            const res = await fetch(
+                `/api/text-overrides/${selectedTextPresetId}`,
+                {
+                    method: "DELETE",
+                },
+            );
+            const data = JSON.parse(await res.text());
+            if (!res.ok) {
+                throw new Error(data.error ?? "Failed to delete text preset");
+            }
+            setTextPresets((current) =>
+                current.filter((item) => item._id !== selectedTextPresetId),
+            );
+            setSelectedTextPresetId("");
+            setTextPresetName("");
+            toast.success("Text preset deleted.");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : String(e));
+        } finally {
+            setDeletingTextPreset(false);
+        }
     }
 
     function applyTextOverride() {
@@ -917,6 +1111,8 @@ export function ClipsTab() {
                       scaleX: textOverrideDraftScaleX,
                       scaleY: textOverrideDraftScaleY,
                       lineSpacing: textOverrideDraftLineSpacing,
+                      uploadCaptionOverride:
+                          textOverrideDraftUploadCaptionOverride.trim(),
                   }
                 : null,
         );
@@ -943,6 +1139,49 @@ export function ClipsTab() {
         const verseForRun = options?.verse ?? selectedVerseForRender;
         const recitationIdForRun =
             options?.recitationId ?? candidateRecitationId;
+        if (
+            verseForRun &&
+            finderAudioSourceMode === "audio" &&
+            !finderAudioId
+        ) {
+            toast.error("Select an uploaded audio source first.");
+            return;
+        }
+        if (
+            verseForRun &&
+            finderAudioSourceMode === "audio" &&
+            !textOverride?.title
+        ) {
+            toast.error(
+                "Set a text override before using uploaded audio on an ayah clip.",
+            );
+            return;
+        }
+        const customAudioIdForRun =
+            verseForRun && finderAudioSourceMode === "audio"
+                ? finderAudioId
+                : null;
+        const customAudioStartForRun = verseForRun
+            ? finderAudioSourceMode === "audio"
+                ? finderAudioStartSeconds
+                : null
+            : null;
+        const parsedCustomAudioEnd =
+            (verseForRun && finderAudioSourceMode === "audio"
+                ? finderAudioEndSeconds
+                : ""
+            ).trim().length > 0
+                ? Number(
+                      verseForRun && finderAudioSourceMode === "audio"
+                          ? finderAudioEndSeconds
+                          : "",
+                  )
+                : null;
+        const customAudioEndForRun =
+            typeof parsedCustomAudioEnd === "number" &&
+            Number.isFinite(parsedCustomAudioEnd)
+                ? parsedCustomAudioEnd
+                : null;
 
         setExperimentLoading(operation);
         try {
@@ -954,6 +1193,11 @@ export function ClipsTab() {
                     verseKey: verseForRun?.verse_key ?? null,
                     recitationId: verseForRun ? recitationIdForRun : null,
                     textOverride: textOverride ?? null,
+                    customAudioId: customAudioIdForRun || null,
+                    customAudioStartSeconds: customAudioStartForRun,
+                    customAudioEndSeconds: customAudioIdForRun
+                        ? customAudioEndForRun
+                        : null,
                 }),
             });
             const data = JSON.parse(await res.text());
@@ -964,10 +1208,17 @@ export function ClipsTab() {
             }
             setExperiments((current) => [data, ...current].slice(0, 20));
             setTextOverride(null);
+            setFinderAudioId("");
+            setFinderAudioStartSeconds(0);
+            setFinderAudioEndSeconds("");
             toast.success(
-                verseForRun
-                    ? `Pipeline started for ${verseForRun.verse_key}.`
-                    : "Pipeline started.",
+                customAudioIdForRun
+                    ? verseForRun
+                        ? `Clip started for ${verseForRun.verse_key} with uploaded audio.`
+                        : "Pipeline started."
+                    : verseForRun
+                      ? `Pipeline started for ${verseForRun.verse_key}.`
+                      : "Pipeline started.",
             );
         } catch (e) {
             toast.error(e instanceof Error ? e.message : String(e));
@@ -1183,14 +1434,66 @@ export function ClipsTab() {
             const chapterName = Number.isFinite(chapterId)
                 ? chapters[chapterId]
                 : undefined;
+            const preferredReciter = item.preferredRecitationId
+                ? (recitations.find(
+                      (recitation) =>
+                          String(recitation.id) === item.preferredRecitationId,
+                  )?.reciter_name ??
+                  RECITERS.find(
+                      (reciter) => reciter.id === item.preferredRecitationId,
+                  )?.label)
+                : null;
 
             return {
                 value: item._id,
                 label: item.verseKey,
-                subtitle: chapterName ?? "Unknown surah",
+                subtitle: preferredReciter
+                    ? `${chapterName ?? "Unknown surah"} · ${preferredReciter}`
+                    : (chapterName ?? "Unknown surah"),
             };
         });
-    }, [chapters, savedAyaat]);
+    }, [chapters, recitations, savedAyaat]);
+
+    const textPresetOptions = useMemo(
+        () =>
+            textPresets.map((preset) => ({
+                value: preset._id,
+                label: preset.name,
+                subtitle: preset.title,
+            })),
+        [textPresets],
+    );
+
+    const customAudioOptions = useMemo(
+        () =>
+            audios.map((audio) => ({
+                value: audio._id,
+                label: audio.name,
+                subtitle: audio.originalFilename,
+            })),
+        [audios],
+    );
+
+    const selectedFinderAudio = useMemo(
+        () => audios.find((audio) => audio._id === finderAudioId) ?? null,
+        [audios, finderAudioId],
+    );
+
+    const audioSourceOptions = useMemo(
+        () => [
+            {
+                value: "reciter",
+                label: "Reciter audio",
+                subtitle: "Use Quran recitation audio",
+            },
+            {
+                value: "audio",
+                label: "Uploaded audio",
+                subtitle: "Use one of your uploaded audio files",
+            },
+        ],
+        [],
+    );
 
     const candidateVerseIsSaved = useMemo(
         () =>
@@ -1206,6 +1509,14 @@ export function ClipsTab() {
             ? selectedExperiment.logs
             : selectedExperiment.logs.slice(-logLimit)
         : [];
+
+    useEffect(() => {
+        return () => {
+            if (finderAudioPreviewTimeoutRef.current) {
+                window.clearTimeout(finderAudioPreviewTimeoutRef.current);
+            }
+        };
+    }, []);
 
     async function runWorkerNow() {
         setRunningWorker(true);
@@ -1230,7 +1541,9 @@ export function ClipsTab() {
             >(res);
             if (!res.ok) {
                 throw new Error(
-                    "error" in data ? data.error ?? "Failed to run worker" : "Failed to run worker",
+                    "error" in data
+                        ? (data.error ?? "Failed to run worker")
+                        : "Failed to run worker",
                 );
             }
             if ("status" in data && data.status === "started") {
@@ -1252,6 +1565,53 @@ export function ClipsTab() {
             toast.error(e instanceof Error ? e.message : String(e));
         } finally {
             setRunningWorker(false);
+        }
+    }
+
+    async function previewFinderAudioTrim() {
+        if (!selectedFinderAudio) {
+            toast.error("Select an uploaded audio source first.");
+            return;
+        }
+        const audio = finderAudioPreviewRef.current;
+        if (!audio) return;
+        const start = Math.max(0, finderAudioStartSeconds);
+        const parsedEnd =
+            finderAudioEndSeconds.trim().length > 0
+                ? Number(finderAudioEndSeconds)
+                : null;
+        if (
+            parsedEnd !== null &&
+            Number.isFinite(parsedEnd) &&
+            parsedEnd <= start
+        ) {
+            toast.error("Trim end must be greater than trim start.");
+            return;
+        }
+
+        if (finderAudioPreviewTimeoutRef.current) {
+            window.clearTimeout(finderAudioPreviewTimeoutRef.current);
+            finderAudioPreviewTimeoutRef.current = null;
+        }
+
+        audio.pause();
+        audio.currentTime = start;
+        try {
+            await audio.play();
+            if (parsedEnd !== null && Number.isFinite(parsedEnd)) {
+                finderAudioPreviewTimeoutRef.current = window.setTimeout(
+                    () => {
+                        audio.pause();
+                        audio.currentTime = start;
+                        finderAudioPreviewTimeoutRef.current = null;
+                    },
+                    Math.max((parsedEnd - start) * 1000, 80),
+                );
+            }
+        } catch (e) {
+            toast.error(
+                e instanceof Error ? e.message : "Unable to preview audio.",
+            );
         }
     }
 
@@ -1331,37 +1691,128 @@ export function ClipsTab() {
                                 </button>
                             </div>
                             <div className="flex w-full flex-row items-end gap-3">
-                                {finderMode === "saved" ? (
-                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Saved ayah
-                                        </Label>
+                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                        Audio source
+                                    </Label>
+                                    <SearchableSelect
+                                        items={audioSourceOptions}
+                                        value={finderAudioSourceMode}
+                                        onChange={(value) =>
+                                            setFinderAudioSourceMode(
+                                                value as AudioSourceMode,
+                                            )
+                                        }
+                                        placeholder="Select audio source"
+                                        searchPlaceholder="Search audio sources…"
+                                        emptyLabel="No audio sources found."
+                                        className="w-full min-w-0"
+                                    />
+                                </div>
+                                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                        {finderAudioSourceMode === "audio"
+                                            ? "Uploaded audio"
+                                            : "Reciter"}
+                                    </Label>
+                                    {finderAudioSourceMode === "audio" ? (
                                         <SearchableSelect
-                                            items={savedAyahOptions}
-                                            value={selectedSavedAyahId}
-                                            onChange={setSelectedSavedAyahId}
-                                            placeholder="Choose a saved ayah"
-                                            searchPlaceholder="Search saved ayaat…"
-                                            emptyLabel="No saved ayaat yet."
+                                            items={customAudioOptions}
+                                            value={finderAudioId}
+                                            onChange={(value) => {
+                                                const selectedAudio =
+                                                    audios.find(
+                                                        (audio) =>
+                                                            audio._id === value,
+                                                    ) ?? null;
+                                                setFinderAudioId(value);
+                                                setFinderAudioStartSeconds(
+                                                    selectedAudio?.defaultStartSeconds ??
+                                                        0,
+                                                );
+                                                setFinderAudioEndSeconds(
+                                                    typeof selectedAudio?.defaultEndSeconds ===
+                                                        "number"
+                                                        ? String(
+                                                              selectedAudio.defaultEndSeconds,
+                                                          )
+                                                        : "",
+                                                );
+                                            }}
+                                            placeholder="Choose uploaded audio"
+                                            searchPlaceholder="Search audio…"
+                                            emptyLabel="No audio uploaded yet."
                                             className="w-full min-w-0"
-                                            disabled={savedAyaat.length === 0}
+                                            disabled={
+                                                customAudioOptions.length === 0
+                                            }
                                         />
-                                    </div>
-                                ) : (
-                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                            Reciter
-                                        </Label>
+                                    ) : (
                                         <SearchableSelect
                                             items={experimentReciterOptions}
                                             value={experimentReciterMode}
-                                            onChange={setExperimentReciterMode}
+                                            onChange={(value) => {
+                                                setExperimentReciterMode(value);
+                                                if (
+                                                    finderMode === "saved" &&
+                                                    selectedSavedAyahId
+                                                ) {
+                                                    void updateSavedAyahPreferredRecitation(
+                                                        selectedSavedAyahId,
+                                                        value === "random"
+                                                            ? null
+                                                            : value,
+                                                    );
+                                                }
+                                            }}
                                             placeholder="Select reciter"
                                             searchPlaceholder="Search reciters…"
                                             emptyLabel="No reciters found."
                                             className="w-full min-w-0"
                                         />
-                                    </div>
+                                    )}
+                                </div>
+                                {finderAudioSourceMode === "audio" && (
+                                    <>
+                                        <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Trim start
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step={0.1}
+                                                value={finderAudioStartSeconds}
+                                                onChange={(e) =>
+                                                    setFinderAudioStartSeconds(
+                                                        Math.max(
+                                                            0,
+                                                            Number(
+                                                                e.target.value,
+                                                            ) || 0,
+                                                        ),
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                        <div className="flex w-28 shrink-0 flex-col gap-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                Trim end
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                step={0.1}
+                                                value={finderAudioEndSeconds}
+                                                onChange={(e) =>
+                                                    setFinderAudioEndSeconds(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Full"
+                                            />
+                                        </div>
+                                    </>
                                 )}
                                 {finderMode === "specific" && (
                                     <>
@@ -1406,56 +1857,96 @@ export function ClipsTab() {
                                         </div>
                                     </>
                                 )}
+                                {finderMode === "saved" ? (
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                            Saved ayah
+                                        </Label>
+                                        <SearchableSelect
+                                            items={savedAyahOptions}
+                                            value={selectedSavedAyahId}
+                                            onChange={setSelectedSavedAyahId}
+                                            placeholder="Choose a saved ayah"
+                                            searchPlaceholder="Search saved ayaat…"
+                                            emptyLabel="No saved ayaat yet."
+                                            className="w-full min-w-0"
+                                            disabled={savedAyaat.length === 0}
+                                        />
+                                    </div>
+                                ) : null}
                                 <div className="flex shrink-0 items-end">
-                                    <Button
-                                        onClick={
-                                            finderMode === "random"
-                                                ? fetchRandom
-                                                : finderMode === "saved"
-                                                  ? () =>
-                                                        void fetchSavedVerse(
-                                                            selectedSavedAyahId,
-                                                        )
-                                                  : undefined
-                                        }
-                                        size={"lg"}
-                                        type={
-                                            finderMode === "specific"
-                                                ? "submit"
-                                                : "button"
-                                        }
-                                        form={
-                                            finderMode === "specific"
-                                                ? "specific-ayah-form"
+                                    <ButtonGroup
+                                        className={
+                                            finderAudioSourceMode === "audio"
+                                                ? "w-full"
                                                 : undefined
                                         }
-                                        disabled={
-                                            finderLoading ||
-                                            (finderMode === "saved" &&
-                                                !selectedSavedAyahId)
-                                        }
-                                        className="w-full"
-                                        title={
-                                            finderLoading
-                                                ? "Finding ayah"
-                                                : finderMode === "random"
-                                                  ? "Find random ayah"
-                                                  : "Find ayah"
-                                        }
-                                        aria-label={
-                                            finderLoading
-                                                ? "Finding ayah"
-                                                : finderMode === "random"
-                                                  ? "Find random ayah"
-                                                  : "Find ayah"
-                                        }
                                     >
-                                        <Search className="size-4" />
-                                        <span>Find Ayah</span>
-                                    </Button>
+                                        {finderAudioSourceMode === "audio" && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="icon-lg"
+                                                onClick={() =>
+                                                    void previewFinderAudioTrim()
+                                                }
+                                                disabled={!finderAudioId}
+                                                title="Preview trimmed audio"
+                                                aria-label="Preview trimmed audio"
+                                            >
+                                                <Play className="size-4" />
+                                            </Button>
+                                        )}
+                                        <Button
+                                            onClick={
+                                                finderMode === "random"
+                                                    ? fetchRandom
+                                                    : finderMode === "saved"
+                                                      ? () =>
+                                                            void fetchSavedVerse(
+                                                                selectedSavedAyahId,
+                                                            )
+                                                      : undefined
+                                            }
+                                            size="lg"
+                                            type={
+                                                finderMode === "specific"
+                                                    ? "submit"
+                                                    : "button"
+                                            }
+                                            form={
+                                                finderMode === "specific"
+                                                    ? "specific-ayah-form"
+                                                    : undefined
+                                            }
+                                            disabled={
+                                                finderLoading ||
+                                                (finderMode === "saved" &&
+                                                    !selectedSavedAyahId)
+                                            }
+                                            aria-label={
+                                                finderLoading
+                                                    ? "Finding ayah"
+                                                    : finderMode === "random"
+                                                      ? "Find random ayah"
+                                                      : "Find ayah"
+                                            }
+                                        >
+                                            <Search className="size-4" />
+                                            <span>Find Ayah</span>
+                                        </Button>
+                                    </ButtonGroup>
                                 </div>
                             </div>
                         </div>
+                        {finderAudioSourceMode === "audio" && finderAudioId && (
+                            <audio
+                                ref={finderAudioPreviewRef}
+                                preload="metadata"
+                                src={`/api/audios/${finderAudioId}/file`}
+                                className="hidden"
+                            />
+                        )}
                         <form
                             id="specific-ayah-form"
                             onSubmit={fetchSpecificVerse}
@@ -1750,11 +2241,35 @@ export function ClipsTab() {
             </div>
 
             <Dialog open={textOverrideOpen} onOpenChange={setTextOverrideOpen}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Text override</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col gap-4 pt-2">
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Saved preset</Label>
+                                <SearchableSelect
+                                    items={textPresetOptions}
+                                    value={selectedTextPresetId}
+                                    onChange={applyTextPreset}
+                                    placeholder="Load a saved text preset"
+                                    searchPlaceholder="Search presets…"
+                                    emptyLabel="No text presets yet."
+                                    className="w-full"
+                                    disabled={textPresetOptions.length === 0}
+                                />
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => void deleteTextPreset()}
+                                disabled={
+                                    !selectedTextPresetId || deletingTextPreset
+                                }
+                            >
+                                Delete preset
+                            </Button>
+                        </div>
                         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_80px]">
                             <div className="flex flex-col gap-1.5">
                                 <Label>Title</Label>
@@ -1861,6 +2376,38 @@ export function ClipsTab() {
                                     }
                                 />
                             </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label>Upload caption override</Label>
+                            <Textarea
+                                value={textOverrideDraftUploadCaptionOverride}
+                                onChange={(e) =>
+                                    setTextOverrideDraftUploadCaptionOverride(
+                                        e.target.value,
+                                    )
+                                }
+                                placeholder="Optional caption used when uploading this clip…"
+                                rows={3}
+                            />
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                            <div className="flex flex-col gap-1.5">
+                                <Label>Save as preset</Label>
+                                <Input
+                                    value={textPresetName}
+                                    onChange={(e) =>
+                                        setTextPresetName(e.target.value)
+                                    }
+                                    placeholder="Preset name"
+                                />
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => void saveTextPreset()}
+                                disabled={savingTextPreset}
+                            >
+                                Save preset
+                            </Button>
                         </div>
                         <div className="flex justify-end gap-2">
                             {textOverride && (

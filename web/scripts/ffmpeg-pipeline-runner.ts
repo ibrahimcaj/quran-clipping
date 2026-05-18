@@ -125,7 +125,6 @@ const PIXELATE_SIZE = 720;
 const TEXT_CARD_ALPHA = 1.0;
 const TEXT_GLOW_ALPHA = 1;
 const TEXT_GLOW_SIGMA = 100;
-const TEXT_GLOW_COLOR = "0x0E3A72";
 const TEXT_INNER_GLOW_ALPHA = 0.7;
 const TEXT_INNER_GLOW_SIGMA = 6;
 const VIDEO_PIXELATE_SIZE = 720;
@@ -133,6 +132,40 @@ const TEXT_PAIR_LEAD_SECONDS = 0.04;
 const TEXT_PAIR_TAIL_SECONDS = 0.08;
 const TEXT_PAIR_MIN_SECONDS = 0.35;
 const TEXT_PAIR_GAP_SECONDS = 0.02;
+const TEXT_CARD_FADE_SECONDS = 0.12;
+
+type TextCardStyleConfig = {
+    textOpacity: number;
+    textColor: string;
+    textStrokeWidth: number;
+    textStrokeColor: string;
+    textGlowAlpha: number;
+    textGlowSigma: number;
+    textGlowColor: string;
+    textInnerGlowAlpha: number;
+    textInnerGlowSigma: number;
+};
+
+function clampNumber(value: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, value));
+}
+
+function normalizeHexColorString(value: unknown, fallback: string) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    return /^#?[0-9a-fA-F]{6}$/.test(trimmed)
+        ? `#${trimmed.replace(/^#/, "").toUpperCase()}`
+        : fallback;
+}
+
+function hexToAssColor(hex: string) {
+    const value = hex.replace(/^#/, "").toUpperCase();
+    return `&H00${value.slice(4, 6)}${value.slice(2, 4)}${value.slice(0, 2)}`;
+}
+
+function hexToFfmpegColor(hex: string) {
+    return `0x${hex.replace(/^#/, "").toUpperCase()}`;
+}
 
 function ensureDir(dir: string) {
     fs.mkdirSync(dir, { recursive: true });
@@ -492,13 +525,13 @@ function buildVideoSequence(
 }
 
 function makeOutputFilename(
-    verseKey: string,
-    reciterName: string,
+    primaryLabel: string,
+    secondaryLabel: string,
     epochMs: number,
 ) {
-    const verseSlug = safeSlug(verseKey.replace(":", "-"));
-    const reciterSlug = safeSlug(reciterName);
-    return `${verseSlug}_${reciterSlug}_${epochMs}.mp4`;
+    const primarySlug = safeSlug(primaryLabel.replace(":", "-"));
+    const secondarySlug = safeSlug(secondaryLabel);
+    return `${primarySlug}_${secondarySlug}_${epochMs}.mp4`;
 }
 
 function cleanupIntermediateArtifacts(
@@ -519,6 +552,13 @@ function cleanupIntermediateArtifacts(
             fs.rmSync(filePath, { force: true });
         }
     }
+}
+
+function getCardFadeSeconds(durationSeconds: number) {
+    return Math.max(
+        0,
+        Math.min(TEXT_CARD_FADE_SECONDS, Math.max(durationSeconds / 2 - 0.01, 0)),
+    );
 }
 
 function minimumAcceptedSegmentDuration(expectedSeconds: number) {
@@ -800,9 +840,23 @@ function createAssCard(
     scaleX = 80,
     scaleY = 125,
     lineSpacing = -6,
+    styleConfig?: TextCardStyleConfig,
 ): string {
     const cy = size / 2;
-    const base = `&H1AFFFFFF,&H1AFFFFFF,&H00000000,&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,0,0`;
+    const resolvedStyle = styleConfig ?? {
+        textOpacity: TEXT_CARD_ALPHA,
+        textColor: "#FFFFFF",
+        textStrokeWidth: 0,
+        textStrokeColor: "#000000",
+        textGlowAlpha: TEXT_GLOW_ALPHA,
+        textGlowSigma: TEXT_GLOW_SIGMA,
+        textGlowColor: "#0E3A72",
+        textInnerGlowAlpha: TEXT_INNER_GLOW_ALPHA,
+        textInnerGlowSigma: TEXT_INNER_GLOW_SIGMA,
+    };
+    const primaryColor = hexToAssColor(resolvedStyle.textColor);
+    const outlineColor = hexToAssColor(resolvedStyle.textStrokeColor);
+    const base = `${primaryColor},${primaryColor},${outlineColor},&H00000000,0,0,0,0,${scaleX},${scaleY},-2,0,1,${resolvedStyle.textStrokeWidth},0`;
     const hasSubtitle = english.trim().length > 0;
     const maxTextWidth = size * 0.78;
     const titleLines = splitAssLines(arabic);
@@ -898,19 +952,31 @@ function buildSubtitleCardFilter(
     inputLabel: string,
     assPath: string,
     outputLabel: string,
+    styleConfig?: TextCardStyleConfig,
 ): string {
     const escapedAssPath = assPath.replace(/\\/g, "\\\\").replace(/:/g, "\\:");
+    const resolvedStyle = styleConfig ?? {
+        textOpacity: TEXT_CARD_ALPHA,
+        textColor: "#FFFFFF",
+        textStrokeWidth: 0,
+        textStrokeColor: "#000000",
+        textGlowAlpha: TEXT_GLOW_ALPHA,
+        textGlowSigma: TEXT_GLOW_SIGMA,
+        textGlowColor: "#0E3A72",
+        textInnerGlowAlpha: TEXT_INNER_GLOW_ALPHA,
+        textInnerGlowSigma: TEXT_INNER_GLOW_SIGMA,
+    };
     return [
         `[${inputLabel}]format=rgba,ass=${escapedAssPath},split=3[${outputLabel}Base][${outputLabel}GlowSrc][${outputLabel}InnerSrc]`,
         `[${outputLabel}Base]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,format=gray[${outputLabel}SharpMask]`,
-        `[${outputLabel}GlowSrc]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${TEXT_GLOW_SIGMA},format=gray[${outputLabel}GlowMask]`,
-        `[${outputLabel}InnerSrc]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${TEXT_INNER_GLOW_SIGMA},format=gray[${outputLabel}InnerMask]`,
-        `color=c=white:s=1080x1080:r=1,format=rgba[${outputLabel}White]`,
-        `color=c=white:s=1080x1080:r=1,format=rgba[${outputLabel}InnerWhite]`,
-        `color=c=${TEXT_GLOW_COLOR}:s=1080x1080:r=1,format=rgba[${outputLabel}GlowColor]`,
-        `[${outputLabel}SharpMask]colorchannelmixer=aa=${TEXT_CARD_ALPHA}[${outputLabel}SharpAlpha]`,
-        `[${outputLabel}GlowMask]colorchannelmixer=aa=${TEXT_GLOW_ALPHA}[${outputLabel}GlowAlpha]`,
-        `[${outputLabel}InnerMask]colorchannelmixer=aa=${TEXT_INNER_GLOW_ALPHA}[${outputLabel}InnerAlpha]`,
+        `[${outputLabel}GlowSrc]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${resolvedStyle.textGlowSigma},format=gray[${outputLabel}GlowMask]`,
+        `[${outputLabel}InnerSrc]scale=${PIXELATE_SIZE}:${PIXELATE_SIZE}:flags=neighbor,scale=1080:1080:flags=neighbor,gblur=sigma=${resolvedStyle.textInnerGlowSigma},format=gray[${outputLabel}InnerMask]`,
+        `color=c=${hexToFfmpegColor(resolvedStyle.textColor)}:s=1080x1080:r=1,format=rgba[${outputLabel}White]`,
+        `color=c=${hexToFfmpegColor(resolvedStyle.textColor)}:s=1080x1080:r=1,format=rgba[${outputLabel}InnerWhite]`,
+        `color=c=${hexToFfmpegColor(resolvedStyle.textGlowColor)}:s=1080x1080:r=1,format=rgba[${outputLabel}GlowColor]`,
+        `[${outputLabel}SharpMask]colorchannelmixer=aa=${resolvedStyle.textOpacity}[${outputLabel}SharpAlpha]`,
+        `[${outputLabel}GlowMask]colorchannelmixer=aa=${resolvedStyle.textGlowAlpha}[${outputLabel}GlowAlpha]`,
+        `[${outputLabel}InnerMask]colorchannelmixer=aa=${resolvedStyle.textInnerGlowAlpha}[${outputLabel}InnerAlpha]`,
         `[${outputLabel}White][${outputLabel}SharpAlpha]alphamerge[${outputLabel}Sharp]`,
         `[${outputLabel}GlowColor][${outputLabel}GlowAlpha]alphamerge[${outputLabel}Glow]`,
         `[${outputLabel}InnerWhite][${outputLabel}InnerAlpha]alphamerge[${outputLabel}Inner]`,
@@ -930,6 +996,7 @@ async function renderSubtitleCardPngBatch(
         scaleX?: number;
         scaleY?: number;
         lineSpacing?: number;
+        styleConfig?: TextCardStyleConfig;
     }[],
     log: (msg: string) => Promise<void>,
 ) {
@@ -945,6 +1012,7 @@ async function renderSubtitleCardPngBatch(
                 card.scaleX,
                 card.scaleY,
                 card.lineSpacing,
+                card.styleConfig,
             ),
             "utf8",
         );
@@ -961,7 +1029,12 @@ async function renderSubtitleCardPngBatch(
             `color=c=black@0.0:s=${TEXT_CARD_SIZE}x${TEXT_CARD_SIZE}:r=1,format=rgba`,
         );
         filterParts.push(
-            buildSubtitleCardFilter(`${index}:v`, card.assPath, `card${index}`),
+            buildSubtitleCardFilter(
+                `${index}:v`,
+                card.assPath,
+                `card${index}`,
+                card.styleConfig,
+            ),
         );
     }
 
@@ -1130,30 +1203,6 @@ async function main() {
             );
         }
 
-        let recitationId: string;
-        let reciterName: string;
-
-        if (existingVerseKey && existingRecitationId) {
-            recitationId = existingRecitationId;
-            reciterName =
-                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
-            await log(`Reusing reciter: ${reciterName}`);
-        } else {
-            await setStep("Choose enabled reciter");
-            const config = await db
-                .collection("configuration")
-                .findOne({ type: "reciters" });
-            const enabledIds = (
-                (config?.enabledIds as number[] | undefined) ?? []
-            ).map(String);
-            if (enabledIds.length === 0)
-                throw new Error("No enabled reciters found");
-            recitationId = chooseRandom(enabledIds);
-            reciterName =
-                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
-            await log(`Selected reciter: ${reciterName}`);
-        }
-
         const videoConfigDoc = await db
             .collection("configuration")
             .findOne({ type: "video" });
@@ -1188,42 +1237,179 @@ async function main() {
             `Unique usable video coverage: ${maxCoverageSeconds.toFixed(2)}s`,
         );
 
-        let verse: VersePayload;
-        let targetSeconds: number;
+        const textOverride = experiment.textOverride as
+            | {
+                  title?: string;
+                  subtitle?: string;
+                  titleFontSize?: number;
+                  subtitleFontSize?: number;
+                  scaleX?: number;
+                  scaleY?: number;
+                  lineSpacing?: number;
+              }
+            | null
+            | undefined;
+        const customAudioId = experiment.customAudioId as
+            | ObjectId
+            | null
+            | undefined;
+        const customAudioStartSeconds =
+            typeof experiment.customAudioStartSeconds === "number"
+                ? Math.max(0, experiment.customAudioStartSeconds)
+                : 0;
+        const customAudioEndSeconds =
+            typeof experiment.customAudioEndSeconds === "number" &&
+            Number.isFinite(experiment.customAudioEndSeconds)
+                ? Math.max(0, experiment.customAudioEndSeconds)
+                : null;
+        const hasCustomAudio = !!customAudioId;
+        const hasStoredVerse = !!(existingVerseKey && existingRecitationId);
 
-        if (existingVerseKey && existingRecitationId) {
+        let recitationId: string | null = null;
+        let reciterName: string | null = null;
+        let verse: VersePayload | null = null;
+        let verseKey: string | null = null;
+        let verseText: string | null = null;
+        let targetSeconds: number;
+        let audioSourcePath: string;
+        let audioTrimStartSeconds = 0;
+        let audioTrimEndSeconds: number | null = null;
+        let audioSourceLabel = "custom-audio";
+
+        if (hasStoredVerse) {
+            recitationId = existingRecitationId!;
+            reciterName =
+                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
+            await log(`Reusing reciter: ${reciterName}`);
+
             await setStep("Fetch selected verse");
-            verse = await getVerseByKey(existingVerseKey, recitationId);
-            const tempAudioPath = createProbeAudioPath();
-            try {
-                await downloadFile(
-                    verseAudioUrl(existingVerseKey, recitationId),
-                    tempAudioPath,
+            verse = await getVerseByKey(existingVerseKey!, recitationId);
+            verseKey = verse.verse_key;
+            verseText = verse.text_uthmani ?? null;
+
+            if (hasCustomAudio) {
+                await setStep("Load custom audio");
+                const audioDoc = await db.collection("audios").findOne({
+                    _id: customAudioId as ObjectId,
+                });
+                const filePath =
+                    typeof audioDoc?.filePath === "string"
+                        ? audioDoc.filePath
+                        : "";
+                if (!filePath || !fs.existsSync(filePath)) {
+                    throw new Error("Selected custom audio file was not found");
+                }
+
+                const sourceDuration = await ffprobeDuration(filePath);
+                audioTrimStartSeconds = Math.min(
+                    customAudioStartSeconds,
+                    sourceDuration,
                 );
-                if (!fs.existsSync(tempAudioPath)) {
+                audioTrimEndSeconds =
+                    customAudioEndSeconds === null
+                        ? sourceDuration
+                        : Math.min(customAudioEndSeconds, sourceDuration);
+                if (audioTrimEndSeconds <= audioTrimStartSeconds) {
                     throw new Error(
-                        `Downloaded audio file not found at ${tempAudioPath}`,
+                        "Custom audio trim end must be greater than trim start",
                     );
                 }
-                const stats = fs.statSync(tempAudioPath);
-                await log(`Downloaded audio: ${stats.size} bytes`);
-                if (stats.size === 0) {
-                    throw new Error(`Downloaded audio file is empty (0 bytes)`);
-                }
-                targetSeconds = await ffprobeDuration(tempAudioPath);
-            } catch (err) {
+                targetSeconds = audioTrimEndSeconds - audioTrimStartSeconds;
+                audioSourcePath = filePath;
+                audioSourceLabel =
+                    (audioDoc?.name as string | undefined) ?? "custom-audio";
                 await log(
-                    `Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`,
+                    `Using uploaded audio ${audioSourceLabel} with verse ${verseKey} (${targetSeconds.toFixed(2)}s from ${audioTrimStartSeconds.toFixed(2)}s to ${audioTrimEndSeconds.toFixed(2)}s)`,
                 );
-                throw err;
-            } finally {
-                if (fs.existsSync(tempAudioPath))
-                    fs.rmSync(tempAudioPath, { force: true });
+            } else {
+                const tempAudioPath = createProbeAudioPath();
+                try {
+                    await downloadFile(
+                        verseAudioUrl(existingVerseKey!, recitationId),
+                        tempAudioPath,
+                    );
+                    if (!fs.existsSync(tempAudioPath)) {
+                        throw new Error(
+                            `Downloaded audio file not found at ${tempAudioPath}`,
+                        );
+                    }
+                    const stats = fs.statSync(tempAudioPath);
+                    await log(`Downloaded audio: ${stats.size} bytes`);
+                    if (stats.size === 0) {
+                        throw new Error(
+                            "Downloaded audio file is empty (0 bytes)",
+                        );
+                    }
+                    targetSeconds = await ffprobeDuration(tempAudioPath);
+                } catch (err) {
+                    await log(
+                        `Error fetching verse audio: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                    throw err;
+                } finally {
+                    if (fs.existsSync(tempAudioPath))
+                        fs.rmSync(tempAudioPath, { force: true });
+                }
+                await log(
+                    `Using selected verse ${existingVerseKey} (${targetSeconds.toFixed(2)}s)`,
+                );
+                const paths = createExperimentOutputPaths(id);
+                await setStep("Download verse audio");
+                await downloadFile(
+                    verseAudioUrl(verseKey, recitationId),
+                    paths.verseAudio,
+                );
+                audioSourcePath = paths.verseAudio;
+                await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
             }
+        } else if (hasCustomAudio) {
+            await setStep("Load custom audio");
+            const audioDoc = await db.collection("audios").findOne({
+                _id: customAudioId as ObjectId,
+            });
+            const filePath =
+                typeof audioDoc?.filePath === "string" ? audioDoc.filePath : "";
+            if (!filePath || !fs.existsSync(filePath)) {
+                throw new Error("Selected custom audio file was not found");
+            }
+
+            const sourceDuration = await ffprobeDuration(filePath);
+            audioTrimStartSeconds = Math.min(
+                customAudioStartSeconds,
+                sourceDuration,
+            );
+            audioTrimEndSeconds =
+                customAudioEndSeconds === null
+                    ? sourceDuration
+                    : Math.min(customAudioEndSeconds, sourceDuration);
+            if (audioTrimEndSeconds <= audioTrimStartSeconds) {
+                throw new Error(
+                    "Custom audio trim end must be greater than trim start",
+                );
+            }
+
+            targetSeconds = audioTrimEndSeconds - audioTrimStartSeconds;
+            audioSourcePath = filePath;
+            audioSourceLabel =
+                (audioDoc?.name as string | undefined) ?? "custom-audio";
             await log(
-                `Using selected verse ${existingVerseKey} (${targetSeconds.toFixed(2)}s)`,
+                `Using custom audio ${audioSourceLabel} (${targetSeconds.toFixed(2)}s from ${audioTrimStartSeconds.toFixed(2)}s to ${audioTrimEndSeconds.toFixed(2)}s)`,
             );
         } else {
+            await setStep("Choose enabled reciter");
+            const config = await db
+                .collection("configuration")
+                .findOne({ type: "reciters" });
+            const enabledIds = (
+                (config?.enabledIds as number[] | undefined) ?? []
+            ).map(String);
+            if (enabledIds.length === 0)
+                throw new Error("No enabled reciters found");
+            recitationId = chooseRandom(enabledIds);
+            reciterName =
+                RECITER_PATHS[recitationId]?.label ?? `Reciter ${recitationId}`;
+            await log(`Selected reciter: ${reciterName}`);
+
             await setStep("Fetch random verse");
             ({ verse, durationSeconds: targetSeconds } =
                 await selectRenderableVerse(
@@ -1234,10 +1420,19 @@ async function main() {
                     log,
                 ));
             await log(`Selected verse ${verse.verse_key}`);
-        }
 
-        const verseKey = verse.verse_key;
-        const verseText = verse.text_uthmani ?? null;
+            verseKey = verse.verse_key;
+            verseText = verse.text_uthmani ?? null;
+
+            const paths = createExperimentOutputPaths(id);
+            await setStep("Download verse audio");
+            await downloadFile(
+                verseAudioUrl(verseKey, recitationId),
+                paths.verseAudio,
+            );
+            audioSourcePath = paths.verseAudio;
+            await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
+        }
 
         await collection.updateOne(
             { _id: currentId },
@@ -1254,18 +1449,11 @@ async function main() {
 
         const paths = createExperimentOutputPaths(id);
         const outputName = makeOutputFilename(
-            verseKey,
-            reciterName,
+            verseKey ?? textOverride?.title ?? audioSourceLabel,
+            reciterName ?? "custom-audio",
             Date.now(),
         );
         const finalPath = path.join(paths.workDir, outputName);
-
-        await setStep("Download verse audio");
-        await downloadFile(
-            verseAudioUrl(verseKey, recitationId),
-            paths.verseAudio,
-        );
-        await log(`Verse audio duration ${targetSeconds.toFixed(2)}s`);
 
         await setStep("Choose random video sequence");
         const videoTargetSeconds = Math.max(
@@ -1492,18 +1680,44 @@ async function main() {
             currentVideo = paths.postprocessed;
         }
 
-        const textOverride = experiment.textOverride as
-            | {
-                  title?: string;
-                  subtitle?: string;
-                  titleFontSize?: number;
-                  subtitleFontSize?: number;
-                  scaleX?: number;
-                  scaleY?: number;
-                  lineSpacing?: number;
-              }
-            | null
-            | undefined;
+        const textStyleConfig: TextCardStyleConfig = {
+            textOpacity:
+                typeof videoConfigDoc?.textOpacity === "number"
+                    ? clampNumber(videoConfigDoc.textOpacity, 0, 1)
+                    : TEXT_CARD_ALPHA,
+            textColor: normalizeHexColorString(
+                videoConfigDoc?.textColor,
+                "#FFFFFF",
+            ),
+            textStrokeWidth:
+                typeof videoConfigDoc?.textStrokeWidth === "number"
+                    ? clampNumber(videoConfigDoc.textStrokeWidth, 0, 20)
+                    : 0,
+            textStrokeColor: normalizeHexColorString(
+                videoConfigDoc?.textStrokeColor,
+                "#000000",
+            ),
+            textGlowAlpha:
+                typeof videoConfigDoc?.textGlowAlpha === "number"
+                    ? clampNumber(videoConfigDoc.textGlowAlpha, 0, 1)
+                    : TEXT_GLOW_ALPHA,
+            textGlowSigma:
+                typeof videoConfigDoc?.textGlowSigma === "number"
+                    ? clampNumber(videoConfigDoc.textGlowSigma, 0, 300)
+                    : TEXT_GLOW_SIGMA,
+            textGlowColor: normalizeHexColorString(
+                videoConfigDoc?.textGlowColor,
+                "#0E3A72",
+            ),
+            textInnerGlowAlpha:
+                typeof videoConfigDoc?.textInnerGlowAlpha === "number"
+                    ? clampNumber(videoConfigDoc.textInnerGlowAlpha, 0, 1)
+                    : TEXT_INNER_GLOW_ALPHA,
+            textInnerGlowSigma:
+                typeof videoConfigDoc?.textInnerGlowSigma === "number"
+                    ? clampNumber(videoConfigDoc.textInnerGlowSigma, 0, 300)
+                    : TEXT_INNER_GLOW_SIGMA,
+        };
 
         if (textOverride?.title) {
             await setStep("Render text card overlay");
@@ -1519,6 +1733,7 @@ async function main() {
                         scaleX: textOverride.scaleX ?? 80,
                         scaleY: textOverride.scaleY ?? 125,
                         lineSpacing: textOverride.lineSpacing ?? -6,
+                        styleConfig: textStyleConfig,
                         assPath,
                         outputPath: pngPath,
                     },
@@ -1536,7 +1751,18 @@ async function main() {
                     "-i",
                     pngPath,
                     "-filter_complex",
-                    `[0:v][1:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,0,${targetSeconds.toFixed(3)})':eof_action=pass[vout]`,
+                    (() => {
+                        const cardDuration = Math.max(targetSeconds, 0.05);
+                        const fadeSeconds = getCardFadeSeconds(cardDuration);
+                        const fadeOutStart = Math.max(
+                            cardDuration - fadeSeconds,
+                            0,
+                        );
+                        return [
+                            `[1:v]format=rgba,trim=duration=${cardDuration.toFixed(3)},setpts=PTS-STARTPTS,fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeSeconds.toFixed(3)}:alpha=1[card]`,
+                            `[0:v][card]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:eof_action=pass[vout]`,
+                        ].join(";");
+                    })(),
                     "-map",
                     "[vout]",
                     "-c:v",
@@ -1559,10 +1785,13 @@ async function main() {
             currentVideo = paths.textOverlaid;
         }
 
-        const rawWords = [...(verse.words ?? [])].sort(
+        const rawWords = [...(verse?.words ?? [])].sort(
             (a, b) => a.position - b.position,
         );
-        const timedWords = mergeSegmentTimings(rawWords, verse.audio?.segments);
+        const timedWords = mergeSegmentTimings(
+            rawWords,
+            verse?.audio?.segments,
+        );
         const textWords = timedWords.filter(
             (w) => w.char_type_name === "word" && getOverlayWordText(w),
         );
@@ -1585,9 +1814,10 @@ async function main() {
             }
 
             // get full verse translation — QF API may omit it, fall back to public Quran.com API
-            let fullTranslation =
-                verse.translations?.[0]?.text?.replace(/<[^>]+>/g, "").trim() ??
-                "";
+            const fullTranslation =
+                verse?.translations?.[0]?.text
+                    ?.replace(/<[^>]+>/g, "")
+                    .trim() ?? "";
             await log(
                 `Gemini: mapping ${arabicSegments.length} segments from translation: "${fullTranslation.substring(0, 120)}"`,
             );
@@ -1695,6 +1925,7 @@ async function main() {
                     english: pair.english,
                     assPath: path.join(paths.workDir, `pair_${number}.ass`),
                     outputPath: path.join(paths.workDir, `pair_${number}.png`),
+                    styleConfig: textStyleConfig,
                 };
             });
             await renderSubtitleCardPngBatch(cardArtifacts, log);
@@ -1711,9 +1942,18 @@ async function main() {
             let prevStream = "0:v";
             for (let i = 0; i < pairs.length; i += 1) {
                 const { startS, endS } = pairs[i];
+                const durationS = Math.max(endS - startS, 0.05);
+                const fadeSeconds = getCardFadeSeconds(durationS);
+                const fadeOutStart = Math.max(durationS - fadeSeconds, 0);
+                const cardStream = `card${i}`;
                 const outStream = i === pairs.length - 1 ? "vout" : `v${i}`;
                 filterParts.push(
-                    `[${prevStream}][${i + 1}:v]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:enable='between(t,${startS.toFixed(3)},${endS.toFixed(3)})':eof_action=pass[${outStream}]`,
+                    `[${i + 1}:v]format=rgba,trim=duration=${durationS.toFixed(3)},setpts=PTS-STARTPTS${
+                        i === 0
+                            ? ""
+                            : `,fade=t=in:st=0:d=${fadeSeconds.toFixed(3)}:alpha=1`
+                    },fade=t=out:st=${fadeOutStart.toFixed(3)}:d=${fadeSeconds.toFixed(3)}:alpha=1,setpts=PTS+${startS.toFixed(3)}/TB[${cardStream}]`,
+                    `[${prevStream}][${cardStream}]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2:eof_action=pass[${outStream}]`,
                 );
                 prevStream = outStream;
             }
@@ -1789,17 +2029,27 @@ async function main() {
             currentVideo = paths.overlaid;
         }
 
-        if (operation === "mix_random_verse") {
-            await setStep("Merge Quran audio");
-            const audioInputArgs =
-                audioLeadSeconds > 0
-                    ? [
-                          "-ss",
-                          audioLeadSeconds.toFixed(3),
-                          "-i",
-                          paths.verseAudio,
-                      ]
-                    : ["-i", paths.verseAudio];
+        if (audioSourcePath) {
+            await setStep(
+                hasCustomAudio ? "Merge custom audio" : "Merge Quran audio",
+            );
+            const audioInputArgs = hasCustomAudio
+                ? [
+                      "-ss",
+                      audioTrimStartSeconds.toFixed(3),
+                      "-t",
+                      targetSeconds.toFixed(3),
+                      "-i",
+                      audioSourcePath,
+                  ]
+                : audioLeadSeconds > 0
+                  ? [
+                        "-ss",
+                        audioLeadSeconds.toFixed(3),
+                        "-i",
+                        audioSourcePath,
+                    ]
+                  : ["-i", audioSourcePath];
             const audioMapArgs =
                 clipTailSeconds > 0
                     ? [

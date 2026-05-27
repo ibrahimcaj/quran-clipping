@@ -10,6 +10,9 @@ services:
         volumes:
             - quran-mongo-data:/data/db
         restart: unless-stopped
+        # prevent oom-kill on low-ram servers — cache capped at 256mb
+        command: --wiredTigerCacheSizeGB 0.25
+        mem_limit: 768m
 
 volumes:
     quran-mongo-data:

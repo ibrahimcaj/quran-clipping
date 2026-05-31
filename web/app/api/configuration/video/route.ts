@@ -55,6 +55,15 @@ export async function GET() {
             textInnerGlowSigma:
                 (doc?.textInnerGlowSigma as number | undefined) ??
                 DEFAULT_ACCOUNT_VIDEO_CONFIG.textInnerGlowSigma,
+            arabicFontSize:
+                (doc?.arabicFontSize as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.arabicFontSize,
+            englishFontSize:
+                (doc?.englishFontSize as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.englishFontSize,
+            textBlockGap:
+                (doc?.textBlockGap as number | undefined) ??
+                DEFAULT_ACCOUNT_VIDEO_CONFIG.textBlockGap,
             videoSelectionMode:
                 (doc?.videoSelectionMode as string | undefined) ??
                 DEFAULT_ACCOUNT_VIDEO_CONFIG.videoSelectionMode,
@@ -97,6 +106,9 @@ export async function PATCH(req: NextRequest) {
             textGlowColor?: string;
             textInnerGlowAlpha?: number;
             textInnerGlowSigma?: number;
+            arabicFontSize?: number;
+            englishFontSize?: number;
+            textBlockGap?: number;
             videoSelectionMode?: string;
             selectedVideoIds?: string[];
             lutSelectionMode?: string;

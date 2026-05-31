@@ -27,6 +27,9 @@ export type AccountVideoConfig = {
     textGlowColor: string;
     textInnerGlowAlpha: number;
     textInnerGlowSigma: number;
+    arabicFontSize: number;
+    englishFontSize: number;
+    textBlockGap: number;
     videoSelectionMode: "all" | "specific";
     selectedVideoIds: string[];
     lutSelectionMode: "all" | "specific";
@@ -59,6 +62,9 @@ type VideoConfigDoc = {
     textGlowColor?: string;
     textInnerGlowAlpha?: number;
     textInnerGlowSigma?: number;
+    arabicFontSize?: number;
+    englishFontSize?: number;
+    textBlockGap?: number;
     videoSelectionMode?: string;
     selectedVideoIds?: (ObjectId | string)[];
     lutSelectionMode?: string;
@@ -89,6 +95,9 @@ type AccountConfigDoc = {
     textGlowColor?: string;
     textInnerGlowAlpha?: number;
     textInnerGlowSigma?: number;
+    arabicFontSize?: number;
+    englishFontSize?: number;
+    textBlockGap?: number;
     videoSelectionMode?: string;
     selectedVideoIds?: (ObjectId | string)[];
     lutSelectionMode?: string;
@@ -117,6 +126,9 @@ export const DEFAULT_ACCOUNT_VIDEO_CONFIG: AccountVideoConfig = {
     textGlowColor: "#0E3A72",
     textInnerGlowAlpha: 0.7,
     textInnerGlowSigma: 6,
+    arabicFontSize: 36,
+    englishFontSize: 11,
+    textBlockGap: -6,
     videoSelectionMode: "all",
     selectedVideoIds: [],
     lutSelectionMode: "all",
@@ -197,6 +209,12 @@ function normalizeVideoConfig(doc?: VideoConfigDoc | null): AccountVideoConfig {
             typeof doc?.textInnerGlowSigma === "number"
                 ? doc.textInnerGlowSigma
                 : 6,
+        arabicFontSize:
+            typeof doc?.arabicFontSize === "number" ? doc.arabicFontSize : 36,
+        englishFontSize:
+            typeof doc?.englishFontSize === "number" ? doc.englishFontSize : 11,
+        textBlockGap:
+            typeof doc?.textBlockGap === "number" ? doc.textBlockGap : -6,
         videoSelectionMode:
             doc?.videoSelectionMode === "specific" ? "specific" : "all",
         selectedVideoIds: Array.isArray(doc?.selectedVideoIds)
@@ -268,6 +286,9 @@ export function sanitizeAccountConfigPatch(body: {
     textGlowColor?: string;
     textInnerGlowAlpha?: number;
     textInnerGlowSigma?: number;
+    arabicFontSize?: number;
+    englishFontSize?: number;
+    textBlockGap?: number;
     videoSelectionMode?: string;
     selectedVideoIds?: string[];
     lutSelectionMode?: string;
@@ -359,6 +380,15 @@ export function sanitizeAccountConfigPatch(body: {
     }
     if (typeof body.textInnerGlowSigma === "number") {
         update.textInnerGlowSigma = Math.max(0, Math.min(300, body.textInnerGlowSigma));
+    }
+    if (typeof body.arabicFontSize === "number") {
+        update.arabicFontSize = Math.max(1, Math.min(200, Math.round(body.arabicFontSize)));
+    }
+    if (typeof body.englishFontSize === "number") {
+        update.englishFontSize = Math.max(1, Math.min(200, Math.round(body.englishFontSize)));
+    }
+    if (typeof body.textBlockGap === "number") {
+        update.textBlockGap = Math.max(-100, Math.min(200, Math.round(body.textBlockGap)));
     }
     if (typeof body.videoSelectionMode === "string") {
         update.videoSelectionMode =

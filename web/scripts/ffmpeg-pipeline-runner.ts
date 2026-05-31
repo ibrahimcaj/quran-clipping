@@ -841,6 +841,7 @@ function createAssCard(
     scaleY = 125,
     lineSpacing = -6,
     styleConfig?: TextCardStyleConfig,
+    blockGap?: number,
 ): string {
     const cy = size / 2;
     const resolvedStyle = styleConfig ?? {
@@ -881,14 +882,13 @@ function createAssCard(
         lineSpacing,
         scaleY,
     );
-    // The same lineSpacing also controls the gap between title and subtitle.
-    const blockGap = lineSpacing;
+    const resolvedBlockGap = blockGap !== undefined ? blockGap : lineSpacing;
     const groupHeight = hasSubtitle
-        ? titleHeight + blockGap + subtitleHeight
+        ? titleHeight + resolvedBlockGap + subtitleHeight
         : titleHeight;
     const groupTop = cy - groupHeight / 2;
     const titleTop = groupTop;
-    const subtitleTop = groupTop + titleHeight + blockGap;
+    const subtitleTop = groupTop + titleHeight + resolvedBlockGap;
     const dialogues = hasSubtitle
         ? [
               ...createAssLineDialogues(
@@ -996,6 +996,7 @@ async function renderSubtitleCardPngBatch(
         scaleX?: number;
         scaleY?: number;
         lineSpacing?: number;
+        blockGap?: number;
         styleConfig?: TextCardStyleConfig;
     }[],
     log: (msg: string) => Promise<void>,
@@ -1013,6 +1014,7 @@ async function renderSubtitleCardPngBatch(
                 card.scaleY,
                 card.lineSpacing,
                 card.styleConfig,
+                card.blockGap,
             ),
             "utf8",
         );
@@ -1218,6 +1220,18 @@ async function main() {
             typeof videoConfigDoc?.clipTailSeconds === "number"
                 ? videoConfigDoc.clipTailSeconds
                 : 0;
+        const arabicFontSize =
+            typeof videoConfigDoc?.arabicFontSize === "number"
+                ? videoConfigDoc.arabicFontSize
+                : 36;
+        const englishFontSize =
+            typeof videoConfigDoc?.englishFontSize === "number"
+                ? videoConfigDoc.englishFontSize
+                : 11;
+        const textBlockGap =
+            typeof videoConfigDoc?.textBlockGap === "number"
+                ? videoConfigDoc.textBlockGap
+                : -6;
         const maxVideoClipSeconds =
             typeof videoConfigDoc?.maxVideoClipSeconds === "number"
                 ? videoConfigDoc.maxVideoClipSeconds
@@ -1728,11 +1742,12 @@ async function main() {
                     {
                         arabic: textOverride.title,
                         english: textOverride.subtitle ?? "",
-                        titleFontSize: textOverride.titleFontSize ?? 36,
-                        subtitleFontSize: textOverride.subtitleFontSize ?? 11,
+                        titleFontSize: textOverride.titleFontSize ?? arabicFontSize,
+                        subtitleFontSize: textOverride.subtitleFontSize ?? englishFontSize,
                         scaleX: textOverride.scaleX ?? 80,
                         scaleY: textOverride.scaleY ?? 125,
                         lineSpacing: textOverride.lineSpacing ?? -6,
+                        blockGap: textOverride.lineSpacing ?? textBlockGap,
                         styleConfig: textStyleConfig,
                         assPath,
                         outputPath: pngPath,
@@ -1923,6 +1938,9 @@ async function main() {
                 return {
                     arabic: pair.arabic,
                     english: pair.english,
+                    titleFontSize: arabicFontSize,
+                    subtitleFontSize: englishFontSize,
+                    blockGap: textBlockGap,
                     assPath: path.join(paths.workDir, `pair_${number}.ass`),
                     outputPath: path.join(paths.workDir, `pair_${number}.png`),
                     styleConfig: textStyleConfig,

@@ -274,6 +274,9 @@ export function SettingsTab() {
     const [textGlowColor, setTextGlowColor] = useState("#0E3A72");
     const [textInnerGlowAlpha, setTextInnerGlowAlpha] = useState(0.7);
     const [textInnerGlowSigma, setTextInnerGlowSigma] = useState(6);
+    const [arabicFontSize, setArabicFontSize] = useState(36);
+    const [englishFontSize, setEnglishFontSize] = useState(11);
+    const [textBlockGap, setTextBlockGap] = useState(-6);
     const [videoSelectionMode, setVideoSelectionMode] = useState("all");
     const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
     const [lutSelectionMode, setLutSelectionMode] = useState("all");
@@ -311,6 +314,9 @@ export function SettingsTab() {
         textGlowColor?: string;
         textInnerGlowAlpha?: number;
         textInnerGlowSigma?: number;
+        arabicFontSize?: number;
+        englishFontSize?: number;
+        textBlockGap?: number;
         videoSelectionMode?: string;
         selectedVideoIds?: string[];
         lutSelectionMode?: string;
@@ -406,6 +412,15 @@ export function SettingsTab() {
             typeof config.textInnerGlowSigma === "number"
                 ? config.textInnerGlowSigma
                 : 6,
+        );
+        setArabicFontSize(
+            typeof config.arabicFontSize === "number" ? config.arabicFontSize : 36,
+        );
+        setEnglishFontSize(
+            typeof config.englishFontSize === "number" ? config.englishFontSize : 11,
+        );
+        setTextBlockGap(
+            typeof config.textBlockGap === "number" ? config.textBlockGap : -6,
         );
         setVideoSelectionMode(
             config.videoSelectionMode === "specific" ? "specific" : "all",
@@ -552,6 +567,9 @@ export function SettingsTab() {
             textGlowColor?: string;
             textInnerGlowAlpha?: number;
             textInnerGlowSigma?: number;
+            arabicFontSize?: number;
+            englishFontSize?: number;
+            textBlockGap?: number;
             videoSelectionMode?: string;
             selectedVideoIds?: string[];
             lutSelectionMode?: string;
@@ -1358,6 +1376,88 @@ export function SettingsTab() {
                                                 saveVideoConfig({ textInnerGlowSigma: next });
                                             }}
                                             placeholder="6"
+                                        />
+                                    </div>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                        <TableRow className="border-b">
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="flex flex-col gap-1">
+                                    <p className="font-medium text-sm">
+                                        Text size and spacing
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Font size for Arabic and English, and the gap between them.
+                                    </p>
+                                </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal align-top">
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="arabic-font-size"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Arabic font size
+                                        </Label>
+                                        <Input
+                                            id="arabic-font-size"
+                                            type="number"
+                                            min={1}
+                                            max={200}
+                                            step={1}
+                                            value={arabicFontSize}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 36;
+                                                setArabicFontSize(next);
+                                                saveVideoConfig({ arabicFontSize: next });
+                                            }}
+                                            placeholder="36"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="english-font-size"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            English font size
+                                        </Label>
+                                        <Input
+                                            id="english-font-size"
+                                            type="number"
+                                            min={1}
+                                            max={200}
+                                            step={1}
+                                            value={englishFontSize}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value) || 11;
+                                                setEnglishFontSize(next);
+                                                saveVideoConfig({ englishFontSize: next });
+                                            }}
+                                            placeholder="11"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="text-block-gap"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Arabic/English gap
+                                        </Label>
+                                        <Input
+                                            id="text-block-gap"
+                                            type="number"
+                                            min={-100}
+                                            max={200}
+                                            step={1}
+                                            value={textBlockGap}
+                                            onChange={(e) => {
+                                                const next = Number(e.target.value);
+                                                setTextBlockGap(next);
+                                                saveVideoConfig({ textBlockGap: next });
+                                            }}
+                                            placeholder="-6"
                                         />
                                     </div>
                                 </div>

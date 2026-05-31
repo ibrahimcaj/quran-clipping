@@ -243,10 +243,39 @@ export async function runAutoclip(): Promise<AutoclipRunResult> {
     }
 }
 
+async function getIntervalMs(): Promise<number> {
+    try {
+        const db = await getDb();
+        const doc = await db.collection("configuration").findOne({ type: "video" }) as {
+            workerUploadIntervalMinutes?: number;
+        } | null;
+        const minutes = typeof doc?.workerUploadIntervalMinutes === "number"
+            ? Math.max(1, doc.workerUploadIntervalMinutes)
+            : 60;
+        return minutes * 60 * 1000;
+    } catch {
+        return AUTOCLIP_INTERVAL_MS;
+    }
+}
+
+async function scheduleNext() {
+    const intervalMs = await getIntervalMs();
+    logWorker(`next run in ${intervalMs / 60000} min`);
+    setTimeout(async () => {
+        await runAutoclip().catch((err: unknown) => {
+            logWorker(`run failed: ${err instanceof Error ? err.message : String(err)}`);
+        });
+        void scheduleNext();
+    }, intervalMs);
+}
+
 export function startWorker() {
     if (global.__workerRunning) return;
     global.__workerRunning = true;
-    setInterval(() => void runAutoclip(), AUTOCLIP_INTERVAL_MS);
-    void runAutoclip();
-    console.log("[worker] started (autoclip=hourly)");
+    void runAutoclip()
+        .catch((err: unknown) => {
+            logWorker(`initial run failed: ${err instanceof Error ? err.message : String(err)}`);
+        })
+        .finally(() => void scheduleNext());
+    console.log("[worker] started");
 }
